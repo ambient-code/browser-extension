@@ -28,3 +28,15 @@ Chrome extension for monitoring and interacting with [Ambient Code Platform](htt
    - **Project** — project name (defaults to `default`)
 
 7. Click **Test Connection** to verify, then start managing your sessions
+
+## Development
+
+No build step required. Edit files and reload the extension in `chrome://extensions`.
+
+## Contributing
+
+Contributions are welcome. Please open an issue or pull request on GitHub.
+
+## License
+
+Apache-2.0

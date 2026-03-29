@@ -271,17 +271,34 @@ async function loadChatHistory(sessionName) {
   }
 }
 
+function extractContent(content) {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter(p => p.type === 'text')
+      .map(p => p.text || '')
+      .join('\n') || '';
+  }
+  if (content && typeof content === 'object') {
+    return content.text || '';
+  }
+  return '';
+}
+
 function processHistory(events, sessionName) {
   console.log(`[ACP] Processing ${events.length} history events for ${sessionName}`, events.map(e => e.type));
 
   const snapshot = events.find(e => e.type === 'MESSAGES_SNAPSHOT');
   if (snapshot && snapshot.messages) {
-    chatMessages = snapshot.messages.filter(m => !m.metadata?.hidden).map(m => ({
-      role: m.role,
-      content: typeof m.content === 'string' ? m.content : (m.content?.thinking || JSON.stringify(m.content)),
-      toolCalls: m.toolCalls,
-      toolCallId: m.toolCallId,
-    }));
+    chatMessages = snapshot.messages
+      .filter(m => !m.metadata?.hidden)
+      .map(m => ({
+        role: m.role,
+        content: extractContent(m.content),
+        toolCalls: m.toolCalls,
+        toolCallId: m.toolCallId,
+      }))
+      .filter(m => m.content && m.role !== 'tool');
   } else if (events.length > 0) {
     chatMessages = reconstructFromEvents(events);
   }
@@ -768,7 +785,10 @@ chrome.runtime.onMessage.addListener((msg) => {
     renderSessions(msg.sessions);
   }
   if (msg.type === 'SSE_EVENT' && currentSession && msg.sessionName === currentSession.name) {
-    handleStreamEvent(msg.event);
+    // Skip if we already have a direct EventSource connection (avoid duplicate events)
+    if (!activeEventSource) {
+      handleStreamEvent(msg.event);
+    }
   }
 });
 

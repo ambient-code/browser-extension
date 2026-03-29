@@ -7,6 +7,14 @@ Chrome extension for monitoring and interacting with [Ambient Code Platform](htt
 - Create new sessions with workflow and model selection
 - Get notified when an agent needs input or finishes a run
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/session-list.png" width="260" alt="Session list">
+  <img src="screenshots/session-detail.png" width="260" alt="Session detail">
+  <img src="screenshots/chat-interrupt.png" width="260" alt="Chat with interrupt">
+</p>
+
 ## Quickstart
 
 1. Clone the repo:

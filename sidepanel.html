@@ -27,6 +27,7 @@
   <div id="main-view">
     <div class="header-bar">
       <span class="logo">Ambient Code</span>
+      <span class="workspace-label" id="workspace-label"></span>
       <div class="header-actions">
         <div class="connection-indicator" id="connection-indicator" title="Connection status">
           <div class="connection-dot disconnected" id="connection-dot"></div>
@@ -54,6 +55,67 @@
           <div class="icon">&#x1F4CB;</div>
           <div class="title">No sessions</div>
           <div class="subtitle">Create a session or check your settings.</div>
+        </div>
+      </div>
+
+      <!-- Setup Wizard (overlay) -->
+      <div id="wizard-panel" class="overlay-panel" role="dialog" aria-modal="true" aria-labelledby="wizard-title-1">
+        <div class="wizard-container">
+          <div class="wizard-header">
+            <span class="wizard-logo">Ambient Code</span>
+            <div class="wizard-steps" id="wizard-step-indicator">
+              <span class="wizard-step active" data-step="1">1</span>
+              <span class="wizard-step-line"></span>
+              <span class="wizard-step" data-step="2">2</span>
+            </div>
+          </div>
+
+          <!-- Step 1: Connect -->
+          <div id="wizard-step-1" class="wizard-step-content active">
+            <h2 class="wizard-title" id="wizard-title-1">Connect to ACP</h2>
+            <p class="wizard-subtitle">Enter your server URL and API key to get started.</p>
+            <div class="form-group">
+              <label for="wizard-url">ACP Base URL</label>
+              <input type="text" id="wizard-url" placeholder="https://acp.example.com">
+            </div>
+            <div class="form-group">
+              <label for="wizard-apikey">API Key</label>
+              <input type="password" id="wizard-apikey" placeholder="Paste your ACP API key">
+            </div>
+            <button class="btn btn-primary btn-full" id="wizard-connect-btn">Connect</button>
+            <div id="wizard-connect-status" role="status" aria-live="polite" style="margin-top:12px; font-size:14px;"></div>
+          </div>
+
+          <!-- Step 2: Select / Create Workspace -->
+          <div id="wizard-step-2" class="wizard-step-content">
+            <h2 class="wizard-title">Select a Workspace</h2>
+            <p class="wizard-subtitle">Choose an existing workspace or create a new one.</p>
+            <div id="wizard-workspace-list" class="wizard-workspace-list"></div>
+            <div id="wizard-no-workspaces" style="display:none;">
+              <div class="empty-state" style="padding:24px 0;">
+                <div class="title">No workspaces found</div>
+                <div class="subtitle">Create your first workspace to get started.</div>
+              </div>
+            </div>
+            <button class="btn btn-secondary btn-full" id="wizard-show-create-btn" style="margin-top:12px;">Create New Workspace</button>
+            <div id="wizard-create-form" style="display:none; margin-top:16px;">
+              <div class="form-group">
+                <label>Workspace Name</label>
+                <input type="text" id="wizard-ws-name" placeholder="my-workspace">
+                <small style="color:var(--muted-foreground)">Lowercase, alphanumeric, hyphens only</small>
+              </div>
+              <div class="form-group">
+                <label>Display Name</label>
+                <input type="text" id="wizard-ws-display" placeholder="My Workspace">
+              </div>
+              <div class="form-group">
+                <label>Description (optional)</label>
+                <input type="text" id="wizard-ws-desc" placeholder="What is this workspace for?">
+              </div>
+              <button class="btn btn-primary btn-full" id="wizard-create-ws-btn">Create Workspace</button>
+            </div>
+            <div id="wizard-ws-status" role="status" aria-live="polite" style="margin-top:12px; font-size:14px;"></div>
+          </div>
         </div>
       </div>
 
@@ -136,10 +198,50 @@
             <input type="password" id="settings-apikey" placeholder="Paste your ACP API key">
           </div>
           <div class="form-group">
-            <label>Project / Namespace</label>
-            <input type="text" id="settings-project" placeholder="default">
+            <label>Workspace</label>
+            <div class="workspace-selector-row">
+              <select id="settings-project">
+                <option value="">Loading workspaces...</option>
+              </select>
+              <button class="btn btn-secondary" id="refresh-workspaces-btn" title="Refresh workspace list">&#x21BB;</button>
+            </div>
           </div>
-          <button class="btn btn-primary btn-full" id="save-settings-btn">Save Settings</button>
+          <div class="workspace-actions">
+            <button class="btn btn-secondary" id="settings-create-ws-btn">Create Workspace</button>
+            <button class="btn btn-destructive" id="settings-delete-ws-btn">Delete Workspace</button>
+          </div>
+          <!-- Create workspace form (inline, hidden by default) -->
+          <div id="settings-create-form" class="workspace-create-form" style="display:none;">
+            <div class="form-group">
+              <label>Workspace Name</label>
+              <input type="text" id="settings-ws-name" placeholder="my-workspace">
+              <small style="color:var(--muted-foreground)">Lowercase, alphanumeric, hyphens only</small>
+            </div>
+            <div class="form-group">
+              <label>Display Name</label>
+              <input type="text" id="settings-ws-display" placeholder="My Workspace">
+            </div>
+            <div class="form-group">
+              <label>Description (optional)</label>
+              <input type="text" id="settings-ws-desc" placeholder="What is this workspace for?">
+            </div>
+            <button class="btn btn-primary btn-full" id="settings-create-ws-submit">Create</button>
+            <div id="settings-create-ws-status" style="margin-top:8px; font-size:14px;"></div>
+          </div>
+          <!-- Delete confirmation (hidden by default) -->
+          <div id="settings-delete-confirm" class="delete-confirm" style="display:none;">
+            <div class="delete-confirm-warning">This will permanently delete workspace "<span id="delete-ws-name-label"></span>" and all its sessions. This cannot be undone.</div>
+            <div class="form-group">
+              <label>Type the workspace name to confirm</label>
+              <input type="text" id="delete-ws-confirm-input" placeholder="">
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-secondary" id="delete-ws-cancel" style="flex:1;">Cancel</button>
+              <button class="btn btn-destructive" id="delete-ws-confirm" style="flex:1;" disabled>Delete</button>
+            </div>
+            <div id="settings-delete-ws-status" style="margin-top:8px; font-size:14px;"></div>
+          </div>
+          <button class="btn btn-primary btn-full" id="save-settings-btn" style="margin-top:16px;">Save Settings</button>
           <div id="settings-status" style="margin-top:12px; font-size:14px;"></div>
           <div style="margin-top:24px; padding-top:16px; border-top:1px solid var(--border);">
             <div style="font-size:13px; color:var(--muted-foreground); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; font-weight:500;">Diagnostics</div>

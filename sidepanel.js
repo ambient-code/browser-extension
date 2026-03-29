@@ -42,6 +42,7 @@ function showPanel(panelId) {
   document.getElementById('sessions-panel').classList.toggle('hidden', panelId !== 'sessions');
   document.getElementById('create-panel').classList.toggle('active', panelId === 'create');
   document.getElementById('settings-panel').classList.toggle('active', panelId === 'settings');
+  document.getElementById('wizard-panel').classList.toggle('active', panelId === 'wizard');
 }
 
 document.getElementById('new-session-toggle').addEventListener('click', () => {
@@ -734,47 +735,337 @@ async function loadSettings() {
   const data = await chrome.storage.local.get(['baseUrl', 'apiKey', 'projectName']);
   document.getElementById('settings-url').value = data.baseUrl || '';
   document.getElementById('settings-apikey').value = data.apiKey || '';
-  document.getElementById('settings-project').value = data.projectName || 'default';
+  // Populate workspace dropdown if we have credentials
+  if (data.apiKey) {
+    loadWorkspaceSelector();
+  }
 }
 
+async function loadWorkspaceSelector() {
+  const select = document.getElementById('settings-project');
+  const { projectName } = await getConfig();
+  select.innerHTML = '<option value="">Loading...</option>';
+  try {
+    const workspaces = await fetchWorkspaces();
+    if (workspaces.length === 0) {
+      select.innerHTML = '<option value="">No workspaces available</option>';
+      return;
+    }
+    select.innerHTML = workspaces.map(ws => {
+      const name = ws.name || '';
+      const display = ws.displayName || name;
+      const status = ws.status || 'active';
+      const label = display !== name ? `${display} (${name})` : name;
+      const statusSuffix = status !== 'active' ? ` [${status}]` : '';
+      return `<option value="${escHtml(name)}" ${name === projectName ? 'selected' : ''}>${escHtml(label)}${statusSuffix}</option>`;
+    }).join('');
+  } catch (err) {
+    select.innerHTML = `<option value="${escHtml(projectName)}">${escHtml(projectName || 'Error loading')}</option>`;
+  }
+}
+
+// Workspace selector change → immediate switch
+document.getElementById('settings-project').addEventListener('change', (e) => {
+  const val = e.target.value;
+  if (val) switchWorkspace(val);
+});
+
+// Refresh workspace list button
+document.getElementById('refresh-workspaces-btn').addEventListener('click', () => loadWorkspaceSelector());
+
+// Save settings
 document.getElementById('save-settings-btn').addEventListener('click', async () => {
   const baseUrl = document.getElementById('settings-url').value.trim();
   const apiKey = document.getElementById('settings-apikey').value.trim();
-  const projectName = document.getElementById('settings-project').value.trim() || 'default';
+  const projectName = document.getElementById('settings-project').value.trim();
 
   await chrome.storage.local.set({ baseUrl, apiKey, projectName });
 
   const statusEl = document.getElementById('settings-status');
-  statusEl.innerHTML = '<span style="color:var(--status-success-fg)">Settings saved.</span>';
-  setTimeout(() => { statusEl.innerHTML = ''; }, 2000);
+  statusEl.textContent = 'Settings saved.';
+  statusEl.style.color = 'var(--status-success-fg)';
+  setTimeout(() => { statusEl.textContent = ''; }, 2000);
 
   chrome.runtime.sendMessage({ type: 'REFRESH_SESSIONS' });
 });
 
+// Settings: Toggle create workspace form
+document.getElementById('settings-create-ws-btn').addEventListener('click', () => {
+  const form = document.getElementById('settings-create-form');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  document.getElementById('settings-delete-confirm').style.display = 'none';
+});
+
+// Settings: Submit create workspace
+document.getElementById('settings-create-ws-submit').addEventListener('click', async () => {
+  const name = document.getElementById('settings-ws-name').value.trim();
+  const displayName = document.getElementById('settings-ws-display').value.trim();
+  const description = document.getElementById('settings-ws-desc').value.trim();
+  const statusEl = document.getElementById('settings-create-ws-status');
+
+  if (!name || !displayName) {
+    statusEl.innerHTML = '<span style="color:var(--destructive)">Name and display name are required.</span>';
+    return;
+  }
+
+  const btn = document.getElementById('settings-create-ws-submit');
+  btn.disabled = true;
+  statusEl.innerHTML = `<span style="color:var(--muted-foreground)">Creating... ${loadingDotsSVG('small')}</span>`;
+
+  try {
+    await createWorkspace(name, displayName, description);
+    statusEl.innerHTML = '<span style="color:var(--status-success-fg)">Workspace created!</span>';
+    document.getElementById('settings-ws-name').value = '';
+    document.getElementById('settings-ws-display').value = '';
+    document.getElementById('settings-ws-desc').value = '';
+    await loadWorkspaceSelector();
+    await switchWorkspace(name);
+    setTimeout(() => {
+      document.getElementById('settings-create-form').style.display = 'none';
+      statusEl.textContent = '';
+    }, 1500);
+  } catch (err) {
+    statusEl.innerHTML = `<span style="color:var(--destructive)">Failed: ${escHtml(err.message)}</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// Settings: Delete workspace — show confirmation
+document.getElementById('settings-delete-ws-btn').addEventListener('click', () => {
+  const select = document.getElementById('settings-project');
+  const wsName = select.value;
+  if (!wsName) return;
+
+  document.getElementById('settings-create-form').style.display = 'none';
+  const confirmEl = document.getElementById('settings-delete-confirm');
+  confirmEl.style.display = 'block';
+  document.getElementById('delete-ws-name-label').textContent = wsName;
+  document.getElementById('delete-ws-confirm-input').value = '';
+  document.getElementById('delete-ws-confirm-input').placeholder = wsName;
+  document.getElementById('delete-ws-confirm').disabled = true;
+  document.getElementById('settings-delete-ws-status').textContent = '';
+});
+
+// Enable delete button only when typed name matches
+document.getElementById('delete-ws-confirm-input').addEventListener('input', (e) => {
+  const expected = document.getElementById('delete-ws-name-label').textContent;
+  document.getElementById('delete-ws-confirm').disabled = e.target.value !== expected;
+});
+
+// Cancel delete
+document.getElementById('delete-ws-cancel').addEventListener('click', () => {
+  document.getElementById('settings-delete-confirm').style.display = 'none';
+});
+
+// Confirm delete
+document.getElementById('delete-ws-confirm').addEventListener('click', async () => {
+  const wsName = document.getElementById('delete-ws-name-label').textContent;
+  const statusEl = document.getElementById('settings-delete-ws-status');
+  const btn = document.getElementById('delete-ws-confirm');
+  btn.disabled = true;
+  statusEl.innerHTML = `<span style="color:var(--muted-foreground)">Deleting... ${loadingDotsSVG('small')}</span>`;
+
+  try {
+    await deleteWorkspace(wsName);
+    statusEl.innerHTML = '<span style="color:var(--status-success-fg)">Workspace deleted.</span>';
+    const { projectName } = await getConfig();
+    if (projectName === wsName) {
+      await chrome.storage.local.set({ projectName: '' });
+      updateWorkspaceLabel('');
+      setTimeout(() => showWizard(), 1000);
+      return; // Skip selector reload — wizard will handle workspace selection
+    }
+    await loadWorkspaceSelector();
+    setTimeout(() => {
+      document.getElementById('settings-delete-confirm').style.display = 'none';
+      statusEl.textContent = '';
+    }, 1500);
+  } catch (err) {
+    statusEl.innerHTML = `<span style="color:var(--destructive)">Failed: ${escHtml(err.message)}</span>`;
+    btn.disabled = false;
+  }
+});
+
+// Test Connection — validates URL + API key without requiring a workspace
 document.getElementById('test-connection-btn').addEventListener('click', async () => {
   const statusEl = document.getElementById('connection-status');
   statusEl.innerHTML = '<span style="color:var(--muted-foreground)">Testing...</span>';
 
   try {
-    const baseUrl = document.getElementById('settings-url').value.trim().replace(/\/+$/, '');
+    const rawUrl = document.getElementById('settings-url').value.trim();
     const apiKey = document.getElementById('settings-apikey').value.trim();
-    const projectName = document.getElementById('settings-project').value.trim() || 'default';
 
-    if (!baseUrl || !apiKey) throw new Error('Base URL and API Key are required.');
+    if (!rawUrl || !apiKey) throw new Error('Base URL and API Key are required.');
+    const baseUrl = validateBaseUrl(rawUrl);
 
-    await chrome.storage.local.set({ baseUrl, apiKey, projectName });
-    document.getElementById('settings-status').innerHTML = '<span style="color:var(--status-success-fg)">Settings saved.</span>';
-    setTimeout(() => { document.getElementById('settings-status').innerHTML = ''; }, 2000);
+    // Save URL and API key (not workspace)
+    await chrome.storage.local.set({ baseUrl, apiKey });
 
-    const res = await fetch(
-      `${baseUrl}/api/projects/${projectName}/agentic-sessions?limit=1`,
-      { headers: { 'Authorization': `Bearer ${apiKey}` } }
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-
-    statusEl.innerHTML = '<span style="color:var(--status-success-fg)">Connected successfully!</span>';
+    const workspaces = await fetchWorkspaces(baseUrl, apiKey);
+    statusEl.innerHTML = `<span style="color:var(--status-success-fg)">Connected! ${workspaces.length} workspace${workspaces.length !== 1 ? 's' : ''} available.</span>`;
+    // Refresh workspace selector with fresh data
+    loadWorkspaceSelector();
   } catch (err) {
     statusEl.innerHTML = `<span style="color:var(--destructive)">Failed: ${escHtml(err.message)}</span>`;
+  }
+});
+
+// ========== Setup Wizard ==========
+
+function showWizard() {
+  showPanel('wizard');
+  wizardGoToStep(1);
+}
+
+function hideWizard() {
+  showPanel('sessions');
+  loadSessions();
+}
+
+function wizardGoToStep(step) {
+  document.getElementById('wizard-step-1').classList.toggle('active', step === 1);
+  document.getElementById('wizard-step-2').classList.toggle('active', step === 2);
+  const indicators = document.querySelectorAll('#wizard-step-indicator .wizard-step');
+  indicators.forEach(el => {
+    const s = parseInt(el.dataset.step);
+    el.classList.toggle('active', s === step);
+    el.classList.toggle('done', s < step);
+  });
+}
+
+// Step 1: Connect
+document.getElementById('wizard-connect-btn').addEventListener('click', async () => {
+  const rawUrl = document.getElementById('wizard-url').value.trim();
+  const apiKey = document.getElementById('wizard-apikey').value.trim();
+  const statusEl = document.getElementById('wizard-connect-status');
+
+  if (!rawUrl || !apiKey) {
+    statusEl.textContent = 'Base URL and API Key are required.';
+    statusEl.style.color = 'var(--destructive)';
+    return;
+  }
+
+  let baseUrl;
+  try {
+    baseUrl = validateBaseUrl(rawUrl);
+  } catch (err) {
+    statusEl.textContent = err.message;
+    statusEl.style.color = 'var(--destructive)';
+    return;
+  }
+
+  const btn = document.getElementById('wizard-connect-btn');
+  btn.disabled = true;
+  statusEl.innerHTML = '<span style="color:var(--muted-foreground)">Connecting...</span>';
+
+  try {
+    const workspaces = await fetchWorkspaces(baseUrl, apiKey);
+    await chrome.storage.local.set({ baseUrl, apiKey });
+    statusEl.textContent = '';
+    wizardGoToStep(2);
+    renderWizardWorkspaces(workspaces);
+  } catch (err) {
+    statusEl.textContent = 'Connection failed: ' + err.message;
+    statusEl.style.color = 'var(--destructive)';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// Step 2: Render workspace list
+function renderWizardWorkspaces(workspaces) {
+  const listEl = document.getElementById('wizard-workspace-list');
+  const noWsEl = document.getElementById('wizard-no-workspaces');
+
+  if (!workspaces || workspaces.length === 0) {
+    listEl.textContent = '';
+    listEl.style.display = 'none';
+    noWsEl.style.display = 'block';
+    document.getElementById('wizard-create-form').style.display = 'block';
+    document.getElementById('wizard-show-create-btn').style.display = 'none';
+    return;
+  }
+
+  noWsEl.style.display = 'none';
+  listEl.style.display = 'flex';
+  document.getElementById('wizard-create-form').style.display = 'none';
+  document.getElementById('wizard-show-create-btn').style.display = 'block';
+
+  // Build workspace items using DOM API to avoid innerHTML with dynamic content
+  listEl.textContent = '';
+  for (const ws of workspaces) {
+    const name = ws.name || '';
+    const display = ws.displayName || name;
+    const status = ws.status || 'active';
+
+    const item = document.createElement('div');
+    item.className = 'wizard-workspace-item';
+    item.dataset.name = name;
+
+    const info = document.createElement('div');
+    info.className = 'wizard-workspace-info';
+
+    const displayEl = document.createElement('div');
+    displayEl.className = 'wizard-workspace-display';
+    displayEl.textContent = display;
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'wizard-workspace-name';
+    nameEl.textContent = name;
+
+    const badge = document.createElement('span');
+    badge.className = 'workspace-status-badge ' + status;
+    badge.textContent = status;
+
+    info.appendChild(displayEl);
+    info.appendChild(nameEl);
+    item.appendChild(info);
+    item.appendChild(badge);
+
+    item.addEventListener('click', async () => {
+      await switchWorkspace(name);
+      hideWizard();
+    });
+
+    listEl.appendChild(item);
+  }
+}
+
+// Show/hide create form in wizard
+document.getElementById('wizard-show-create-btn').addEventListener('click', () => {
+  const form = document.getElementById('wizard-create-form');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+});
+
+// Create workspace from wizard
+document.getElementById('wizard-create-ws-btn').addEventListener('click', async () => {
+  const name = document.getElementById('wizard-ws-name').value.trim();
+  const displayName = document.getElementById('wizard-ws-display').value.trim();
+  const description = document.getElementById('wizard-ws-desc').value.trim();
+  const statusEl = document.getElementById('wizard-ws-status');
+
+  if (!name || !displayName) {
+    statusEl.textContent = 'Name and display name are required.';
+    statusEl.style.color = 'var(--destructive)';
+    return;
+  }
+
+  const btn = document.getElementById('wizard-create-ws-btn');
+  btn.disabled = true;
+  statusEl.innerHTML = '<span style="color:var(--muted-foreground)">Creating...</span>';
+
+  try {
+    await createWorkspace(name, displayName, description);
+    statusEl.textContent = 'Workspace created!';
+    statusEl.style.color = 'var(--status-success-fg)';
+    await switchWorkspace(name);
+    setTimeout(() => hideWizard(), 500);
+  } catch (err) {
+    statusEl.textContent = 'Failed: ' + err.message;
+    statusEl.style.color = 'var(--destructive)';
+  } finally {
+    btn.disabled = false;
   }
 });
 
@@ -784,6 +1075,10 @@ chrome.runtime.onMessage.addListener((msg) => {
     updateConnectionHealth(); // Background successfully polled
     renderSessions(msg.sessions);
   }
+  if (msg.type === 'WORKSPACE_GONE') {
+    showToast('Workspace no longer available. Please select another.');
+    showWizard();
+  }
   if (msg.type === 'SSE_EVENT' && currentSession && msg.sessionName === currentSession.name) {
     // Skip if we already have a direct EventSource connection (avoid duplicate events)
     if (!activeEventSource) {
@@ -791,6 +1086,89 @@ chrome.runtime.onMessage.addListener((msg) => {
     }
   }
 });
+
+// ========== URL validation ==========
+function validateBaseUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error('Only HTTP and HTTPS URLs are supported.');
+    }
+    return parsed.origin;
+  } catch (e) {
+    if (e.message.includes('HTTP')) throw e;
+    throw new Error('Invalid URL format.');
+  }
+}
+
+// ========== Workspace CRUD ==========
+
+const FETCH_TIMEOUT = 10_000; // 10s timeout for workspace API calls
+
+function fetchWithTimeout(url, options = {}, timeout = FETCH_TIMEOUT) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  return fetch(url, { ...options, signal: controller.signal })
+    .catch(err => {
+      if (err.name === 'AbortError') throw new Error('Request timed out.');
+      throw err;
+    })
+    .finally(() => clearTimeout(timeoutId));
+}
+
+async function fetchWorkspaces(baseUrlOverride, apiKeyOverride) {
+  const { baseUrl: cfgUrl, apiKey: cfgKey } = await getConfig();
+  const baseUrl = (baseUrlOverride || cfgUrl).replace(/\/+$/, '');
+  const apiKey = apiKeyOverride || cfgKey;
+  const res = await fetchWithTimeout(`${baseUrl}/api/projects`, {
+    headers: { 'Authorization': `Bearer ${apiKey}` },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  const data = await res.json();
+  return data.items || data || [];
+}
+
+async function createWorkspace(name, displayName, description) {
+  if (!name || !displayName) throw new Error('Name and display name are required.');
+  const { baseUrl, apiKey } = await getConfig();
+  const body = { name, displayName };
+  if (description) body.description = description;
+  const res = await fetchWithTimeout(`${baseUrl}/api/projects`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`${res.status}: ${errText || res.statusText}`);
+  }
+  return res.json();
+}
+
+async function deleteWorkspace(name) {
+  const { baseUrl, apiKey } = await getConfig();
+  const res = await fetchWithTimeout(`${baseUrl}/api/projects/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${apiKey}` },
+  });
+  if (!res.ok && res.status !== 204) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`${res.status}: ${errText || res.statusText}`);
+  }
+  return true;
+}
+
+async function switchWorkspace(projectName) {
+  await chrome.storage.local.set({ projectName });
+  updateWorkspaceLabel(projectName);
+  chrome.runtime.sendMessage({ type: 'REFRESH_SESSIONS' });
+  loadSessions();
+}
+
+function updateWorkspaceLabel(name) {
+  const el = document.getElementById('workspace-label');
+  if (el) el.textContent = name || '';
+}
 
 // ========== Utilities ==========
 // getConfig(), escHtml(), timeAgo(), loadingDotsSVG() provided by utils.js
@@ -871,5 +1249,13 @@ setInterval(() => {
 }, 5000);
 
 // ========== Init ==========
-loadSettings();
-loadSessions();
+(async function init() {
+  await loadSettings();
+  const { apiKey, projectName } = await getConfig();
+  updateWorkspaceLabel(projectName);
+  if (!apiKey || !projectName) {
+    showWizard();
+  } else {
+    loadSessions();
+  }
+})();

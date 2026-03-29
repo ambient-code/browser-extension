@@ -14,6 +14,7 @@ let pollTimer = null;
 let currentPollInterval = POLL_INTERVAL_NORMAL;
 let sseControllers = new Map(); // sessionName → AbortController
 let lastKnownPhases = new Map(); // sessionName → phase (for change detection)
+let workspaceGoneNotified = false; // Throttle WORKSPACE_GONE notifications
 
 // ---------- Notification store ----------
 
@@ -53,10 +54,11 @@ async function updateBadge() {
 async function connectSSE(sessionName) {
   if (sseControllers.has(sessionName)) return; // already connected
 
+  const { baseUrl, apiKey, projectName } = await getConfig();
+  if (!projectName) return;
+
   const controller = new AbortController();
   sseControllers.set(sessionName, controller);
-
-  const { baseUrl, apiKey, projectName } = await getConfig();
   const url = `${baseUrl}/api/projects/${projectName}/agentic-sessions/${sessionName}/agui/events`;
 
   try {
@@ -197,13 +199,21 @@ function detectPhaseChanges(sessions) {
 async function pollSessions() {
   try {
     const { baseUrl, apiKey, projectName } = await getConfig();
-    if (!apiKey) return;
+    if (!apiKey || !projectName) return;
 
     const res = await fetch(
       `${baseUrl}/api/projects/${projectName}/agentic-sessions?limit=100`,
       { headers: { 'Authorization': `Bearer ${apiKey}` } }
     );
-    if (!res.ok) return;
+    if (!res.ok) {
+      // Workspace may have been deleted externally — notify sidepanel once
+      if ((res.status === 404 || res.status === 403) && !workspaceGoneNotified) {
+        workspaceGoneNotified = true;
+        chrome.runtime.sendMessage({ type: 'WORKSPACE_GONE', projectName }).catch(() => {});
+      }
+      return;
+    }
+    workspaceGoneNotified = false; // Reset on successful poll
     const data = await res.json();
     const sessions = data.items || data.sessions || data || [];
 

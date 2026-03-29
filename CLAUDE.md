@@ -41,3 +41,10 @@ Base: `{baseUrl}/api/projects/{projectName}/agentic-sessions`
 ## Development
 
 Load as unpacked extension in `chrome://extensions` with Developer mode enabled. No build step required — edit files and reload the extension.
+
+## Active Technologies
+- JavaScript (ES2020+, no modules) + Chrome Extensions API (Manifest V3), no external libraries (001-workspace-management)
+- `chrome.storage.local` for config persistence (001-workspace-management)
+
+## Recent Changes
+- 001-workspace-management: Added JavaScript (ES2020+, no modules) + Chrome Extensions API (Manifest V3), no external libraries

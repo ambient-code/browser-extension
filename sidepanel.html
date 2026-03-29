@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ambient Code Platform</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+    body { display: flex; flex-direction: column; }
+    .panel-body { flex: 1; overflow-y: auto; }
+    #chat-view { display: none; flex-direction: column; height: 100%; }
+    #chat-view.active { display: flex; }
+    #main-view { display: flex; flex-direction: column; height: 100%; }
+    #main-view.hidden { display: none; }
+    /* Overlay panels slide in over sessions list */
+    .overlay-panel { display: none; }
+    .overlay-panel.active { display: block; }
+    #sessions-panel { display: block; }
+    #sessions-panel.hidden { display: none; }
+  </style>
+  <script src="theme-init.js"></script>
+</head>
+<body>
+
+  <!-- ===== Main View ===== -->
+  <div id="main-view">
+    <div class="header-bar">
+      <span class="logo">Ambient Code</span>
+      <div class="header-actions">
+        <div class="connection-indicator" id="connection-indicator" title="Connection status">
+          <div class="connection-dot disconnected" id="connection-dot"></div>
+          <span class="timestamp" id="connection-timestamp">--</span>
+        </div>
+        <a class="github-link" href="https://github.com/ambient-code/browser-extension" target="_blank" rel="noopener noreferrer" title="GitHub">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+        <button class="header-icon-btn" id="new-session-toggle" title="New session">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button class="header-icon-btn" id="settings-toggle" title="Settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button class="header-icon-btn" id="theme-toggle" title="Toggle theme">&#9790;</button>
+      </div>
+    </div>
+
+    <div class="panel-body">
+      <!-- Sessions list (default view) -->
+      <div id="sessions-panel">
+        <div id="sessions-list"></div>
+        <div id="sessions-loading" class="spinner" style="display:none;"></div>
+        <div id="sessions-empty" class="empty-state" style="display:none;">
+          <div class="icon">&#x1F4CB;</div>
+          <div class="title">No sessions</div>
+          <div class="subtitle">Create a session or check your settings.</div>
+        </div>
+      </div>
+
+      <!-- New Session (overlay) -->
+      <div id="create-panel" class="overlay-panel">
+        <div class="overlay-header">
+          <button class="back-btn" id="create-back-btn">&larr;</button>
+          <span class="overlay-title">New Session</span>
+        </div>
+        <div style="padding: 16px;">
+          <!-- Chat-style prompt area -->
+          <div class="create-chatbox">
+            <textarea id="new-session-prompt" class="create-chatbox-input" placeholder="Describe what you'd like to work on..." rows="3"></textarea>
+            <div class="create-chatbox-toolbar">
+              <div class="create-chatbox-selectors">
+                <select id="new-session-runner" class="toolbar-select" title="Runner type">
+                  <option value="">Loading runners...</option>
+                </select>
+                <select id="new-session-model" class="toolbar-select" title="Model">
+                  <option value="">Loading models...</option>
+                </select>
+                <select id="new-session-workflow" class="toolbar-select" title="Workflow">
+                  <option value="">General chat</option>
+                </select>
+              </div>
+              <button class="create-send-btn" id="create-session-btn" title="Create session">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Custom workflow fields (shown when "Custom..." selected) -->
+          <div id="custom-workflow-fields" style="display:none; margin-top:12px;">
+            <div class="form-group">
+              <label>Workflow Git URL</label>
+              <input type="text" id="new-session-workflow-url" placeholder="https://github.com/org/workflow-repo.git">
+            </div>
+            <div class="form-group">
+              <label>Workflow Branch</label>
+              <input type="text" id="new-session-workflow-branch" placeholder="main">
+            </div>
+          </div>
+
+          <!-- Advanced options (collapsible) -->
+          <details class="advanced-section">
+            <summary class="advanced-toggle">Advanced options</summary>
+            <div style="padding-top:12px;">
+              <div class="form-group">
+                <label>Display Name (optional)</label>
+                <input type="text" id="new-session-name" placeholder="e.g. Fix auth bug" maxlength="50">
+              </div>
+              <div class="form-group">
+                <label>Repository URL (optional)</label>
+                <input type="text" id="new-session-repo" placeholder="https://github.com/org/repo">
+              </div>
+              <div class="form-group">
+                <label>Branch (optional)</label>
+                <input type="text" id="new-session-branch" placeholder="main">
+              </div>
+            </div>
+          </details>
+
+          <div id="create-status" style="margin-top:12px; font-size:14px;"></div>
+        </div>
+      </div>
+
+      <!-- Settings (overlay) -->
+      <div id="settings-panel" class="overlay-panel">
+        <div class="overlay-header">
+          <button class="back-btn" id="settings-back-btn">&larr;</button>
+          <span class="overlay-title">Settings</span>
+        </div>
+        <div style="padding: 16px;">
+          <div class="form-group">
+            <label>ACP Base URL</label>
+            <input type="text" id="settings-url" placeholder="https://acp.example.com">
+          </div>
+          <div class="form-group">
+            <label>API Key</label>
+            <input type="password" id="settings-apikey" placeholder="Paste your ACP API key">
+          </div>
+          <div class="form-group">
+            <label>Project / Namespace</label>
+            <input type="text" id="settings-project" placeholder="default">
+          </div>
+          <button class="btn btn-primary btn-full" id="save-settings-btn">Save Settings</button>
+          <div id="settings-status" style="margin-top:12px; font-size:14px;"></div>
+          <div style="margin-top:24px; padding-top:16px; border-top:1px solid var(--border);">
+            <div style="font-size:13px; color:var(--muted-foreground); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; font-weight:500;">Diagnostics</div>
+            <button class="btn btn-secondary btn-full" id="test-connection-btn">Test Connection</button>
+            <div id="connection-status" style="margin-top:10px; font-size:14px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Chat View ===== -->
+  <div id="chat-view">
+    <div class="chat-header">
+      <button class="back-btn" id="chat-back-btn">&larr;</button>
+      <span class="session-title" id="chat-session-title">Session</span>
+      <span class="phase-badge" id="chat-phase-badge">running</span>
+    </div>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-area">
+      <textarea class="chat-input" id="chat-input" placeholder="Send a message..." rows="1"></textarea>
+      <button class="send-btn" id="chat-send-btn">Send</button>
+    </div>
+  </div>
+
+  <script src="utils.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

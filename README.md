@@ -2,6 +2,8 @@
 
 Chrome extension for monitoring and interacting with [Ambient Code Platform](https://github.com/ambient-code) agentic sessions from your browser.
 
+- **Guided setup wizard** — connect with just a URL and API key, then select or create a workspace
+- **Workspace management** — create, switch, and delete workspaces from the extension
 - View and manage running sessions
 - Chat with agents in real time (streaming via SSE)
 - Create new sessions with workflow and model selection
@@ -30,12 +32,15 @@ Chrome extension for monitoring and interacting with [Ambient Code Platform](htt
 
 5. Click the extension icon in the toolbar, then open the **side panel**
 
-6. Go to **Settings** and configure:
-   - **Base URL** — your ACP backend (e.g. `https://acp.example.com`)
-   - **API Key** — your ACP API key
-   - **Project** — project name (defaults to `default`)
+6. The **setup wizard** will guide you through connecting:
+   - Enter your **ACP Base URL** (e.g. `https://acp.example.com`)
+   - Enter your **API Key**
+   - Click **Connect** — the extension validates your credentials
+   - Select an existing workspace or create a new one
 
-7. Click **Test Connection** to verify, then start managing your sessions
+7. Start managing your sessions
+
+To switch workspaces later, open **Settings** and use the workspace dropdown. You can also create and delete workspaces from Settings.
 
 ## Development
 

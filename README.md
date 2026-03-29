@@ -11,8 +11,8 @@ Chrome extension for monitoring and interacting with [Ambient Code Platform](htt
 
 <p align="center">
   <img src="screenshots/session-list.png" width="260" alt="Session list">
-  <img src="screenshots/session-detail.png" width="260" alt="Session detail">
-  <img src="screenshots/chat-interrupt.png" width="260" alt="Chat with interrupt">
+  <img src="screenshots/create-session.png" width="260" alt="Create session">
+  <img src="screenshots/settings.png" width="260" alt="Settings">
 </p>
 
 ## Quickstart

@@ -32,7 +32,7 @@ async function getConfig() {
   return {
     baseUrl: (data.baseUrl || 'http://localhost:8080').replace(/\/+$/, ''),
     apiKey: data.apiKey || '',
-    projectName: data.projectName || 'default',
+    projectName: data.projectName || '',
   };
 }
 

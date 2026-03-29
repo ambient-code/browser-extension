@@ -736,3 +736,198 @@ details[open] > .advanced-toggle::before {
   from { opacity: 0; transform: translateX(-50%) translateY(8px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+
+/* ========== Workspace label ========== */
+.workspace-label {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  background: var(--muted);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ========== Wizard ========== */
+.wizard-container {
+  padding: 24px 16px;
+  max-width: 400px;
+  margin: 0 auto;
+}
+.wizard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.wizard-logo {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.wizard-steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wizard-step {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  transition: background 0.2s, color 0.2s;
+}
+.wizard-step.active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.wizard-step.done {
+  background: var(--status-success);
+  color: var(--status-success-fg);
+}
+.wizard-step-line {
+  width: 24px;
+  height: 2px;
+  background: var(--border);
+}
+.wizard-step-content {
+  display: none;
+}
+.wizard-step-content.active {
+  display: block;
+}
+.wizard-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--foreground);
+}
+.wizard-subtitle {
+  font-size: 14px;
+  color: var(--muted-foreground);
+  margin: 0 0 20px;
+}
+.wizard-workspace-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.wizard-workspace-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.wizard-workspace-item:hover {
+  border-color: var(--primary);
+  background: var(--accent);
+}
+.wizard-workspace-info {
+  flex: 1;
+  min-width: 0;
+}
+.wizard-workspace-display {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+.wizard-workspace-name {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.workspace-status-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+.workspace-status-badge.active {
+  background: var(--status-success);
+  color: var(--status-success-fg);
+}
+.workspace-status-badge.pending {
+  background: var(--status-warning);
+  color: var(--status-warning-fg);
+}
+.workspace-status-badge.archived {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+/* ========== Workspace management (settings) ========== */
+.workspace-selector-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.workspace-selector-row select {
+  flex: 1;
+}
+.workspace-selector-row .btn {
+  flex-shrink: 0;
+  padding: 8px;
+  min-width: 32px;
+}
+.workspace-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.workspace-actions .btn {
+  flex: 1;
+}
+.workspace-create-form {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.workspace-create-form .form-group {
+  margin-bottom: 10px;
+}
+.workspace-create-form .form-group:last-of-type {
+  margin-bottom: 12px;
+}
+
+/* Delete confirmation */
+.delete-confirm {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--destructive);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.delete-confirm-warning {
+  font-size: 13px;
+  color: var(--destructive);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+.btn-destructive {
+  background: var(--destructive);
+  color: var(--primary-foreground);
+  border: none;
+}
+.btn-destructive:hover {
+  opacity: 0.9;
+}
+.btn-destructive:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

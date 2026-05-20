@@ -37,8 +37,9 @@ async function _pollSessionsInner() {
   try {
     data = await api.sessions.list({ size: 100 });
   } catch (err) {
-    if (err.status === 401 || /auth|unauthorized/i.test(err.message)) {
+    if (err.status === 401 || /auth|unauthorized|expired/i.test(err.message)) {
       broadcast({ type: 'AUTH_EXPIRED' });
+      stopPolling();
       return;
     }
     console.warn('pollSessions failed:', err);
@@ -99,8 +100,12 @@ async function connectSSE(sessionId) {
     response = await api.sessions.streamEvents(sessionId);
     sseBackoff.delete(sessionId);
   } catch (err) {
-    console.warn(`SSE connect failed for ${sessionId}:`, err);
     sseControllers.delete(sessionId);
+    if (/auth|expired|unauthorized/i.test(err.message)) {
+      stopPolling();
+      return;
+    }
+    console.warn(`SSE connect failed for ${sessionId}:`, err);
     scheduleSSEReconnect(sessionId);
     return;
   }
@@ -113,8 +118,12 @@ async function connectSSE(sessionId) {
     },
     (err) => {
       if (controller.signal.aborted) return;
-      console.warn(`SSE error for ${sessionId}:`, err);
       sseControllers.delete(sessionId);
+      if (/auth|expired|unauthorized/i.test(String(err))) {
+        stopPolling();
+        return;
+      }
+      console.warn(`SSE error for ${sessionId}:`, err);
       scheduleSSEReconnect(sessionId);
     },
     controller.signal

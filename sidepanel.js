@@ -168,19 +168,28 @@ function renderSessions(sessions) {
     actions.className = 'session-actions';
 
     if (s.phase === 'Running') {
+      const chatBtn = document.createElement('button');
+      chatBtn.className = 'btn btn-primary';
+      chatBtn.textContent = 'Chat';
+      chatBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openChat(s);
+      });
+      actions.appendChild(chatBtn);
+
       const stopBtn = document.createElement('button');
-      stopBtn.className = 'btn btn-secondary btn-stop';
-      stopBtn.dataset.id = s.id;
+      stopBtn.className = 'btn btn-secondary';
       stopBtn.textContent = 'Stop';
       stopBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        transitionSession(s.id, 'stop');
+        if (confirm(`Stop session "${s.name}"?`)) {
+          transitionSession(s.id, 'stop');
+        }
       });
       actions.appendChild(stopBtn);
     } else if (s.phase === 'Stopped' || s.phase === 'Completed' || s.phase === 'Failed') {
       const startBtn = document.createElement('button');
-      startBtn.className = 'btn btn-primary btn-start';
-      startBtn.dataset.id = s.id;
+      startBtn.className = 'btn btn-primary';
       startBtn.textContent = 'Start';
       startBtn.addEventListener('click', (e) => {
         e.stopPropagation();

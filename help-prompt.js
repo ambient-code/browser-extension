@@ -88,7 +88,7 @@ Where are the docs? Full documentation: https://ambient-code.github.io/platform/
 
 ## Troubleshooting
 
-Session not starting: Verify the workspace has the required AI provider credentials configured in Settings → Secrets. Check SSH/HTTPS credentials if cloning private repos.
+Session not starting: LLM provider API keys are managed at the cluster level — no user action needed. Check SSH/HTTPS credentials if cloning private repos.
 
 Integration disconnected: Refresh in Settings → Integrations. Check PAT expiration. For GitHub App, verify installation in org settings.
 

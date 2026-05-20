@@ -101,12 +101,6 @@ body {
   min-width: 0;
 }
 
-.title-bar-name {
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: -0.02em;
-}
-
 .title-connection {
   display: inline-flex;
   align-items: center;
@@ -298,6 +292,15 @@ body {
   gap: 10px;
   font-size: 14px;
   color: var(--text-muted);
+}
+
+.session-preview {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
 }
 
 .session-actions {
@@ -576,6 +579,17 @@ select {
 
 .step-dot.completed {
   background: var(--success);
+}
+
+.wizard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.wizard-header h2 {
+  margin: 0;
 }
 
 .wizard-divider {

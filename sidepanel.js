@@ -22,15 +22,23 @@ function updateConnectionStatus(state) {
   });
 }
 
-function updateVersionDisplay(serverVersion) {
-  const serverEl = document.getElementById('version-server');
+function updateVersionDisplay() {
   const clientEl = document.getElementById('version-client');
-  if (serverEl) {
-    serverEl.textContent = serverVersion ? `server:v${serverVersion}` : 'server:unknown';
-  }
   if (clientEl) {
-    clientEl.textContent = `client:v${CLIENT_VERSION}`;
+    clientEl.textContent = `v${CLIENT_VERSION}`;
   }
+  getConfig().then(cfg => {
+    const serverEl = document.getElementById('version-server');
+    if (serverEl && cfg.baseUrl) {
+      try {
+        const host = new URL(cfg.baseUrl).hostname;
+        serverEl.textContent = host;
+        serverEl.title = `Click to copy: ${cfg.baseUrl}`;
+      } catch (_) {
+        serverEl.textContent = cfg.baseUrl;
+      }
+    }
+  });
 }
 
 function showWizard() {
@@ -142,6 +150,13 @@ function renderSessions(sessions) {
     meta.appendChild(timeSpan);
     info.appendChild(nameEl);
     info.appendChild(meta);
+
+    if (s.prompt) {
+      const preview = document.createElement('div');
+      preview.className = 'session-preview';
+      preview.textContent = s.prompt;
+      info.appendChild(preview);
+    }
 
     const actions = document.createElement('div');
     actions.className = 'session-actions';
@@ -444,9 +459,32 @@ async function loadSettingsPanel() {
   }
 }
 
+async function saveUrlToHistory(url) {
+  const { urlHistory = [] } = await chrome.storage.local.get('urlHistory');
+  const clean = url.replace(/\/+$/, '');
+  if (!urlHistory.includes(clean)) {
+    urlHistory.unshift(clean);
+    await chrome.storage.local.set({ urlHistory: urlHistory.slice(0, 10) });
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const authenticated = await isAuthenticated();
   const config = await getConfig();
+
+  // Populate URL history datalist
+  const { urlHistory = [] } = await chrome.storage.local.get('urlHistory');
+  const urlDatalist = document.getElementById('url-history');
+  if (urlDatalist) {
+    urlHistory.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u;
+      urlDatalist.appendChild(opt);
+    });
+  }
+  if (config.baseUrl) {
+    document.getElementById('wizard-url').value = config.baseUrl;
+  }
 
   if (!authenticated) {
     updateConnectionStatus('disconnected');
@@ -463,6 +501,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     showApp();
     loadSessions();
   }
+
+  // Wizard: Reset/logout from step 1
+  document.getElementById('wizard-reset-1').addEventListener('click', async () => {
+    await chrome.storage.local.remove(['oauthTokens', 'baseUrl', 'projectName', 'cachedSessions']);
+    chrome.runtime.sendMessage({ type: 'OAUTH_LOGOUT' });
+    document.getElementById('wizard-url').value = '';
+    document.getElementById('wizard-token').value = '';
+    document.getElementById('wizard-login-status').textContent = '';
+    updateConnectionStatus('disconnected');
+    showToast('Connection reset');
+  });
+
+  // Wizard: Back from step 2 to step 1 (logout)
+  document.getElementById('wizard-back-to-login').addEventListener('click', async () => {
+    await chrome.storage.local.remove(['oauthTokens', 'projectName', 'cachedSessions']);
+    chrome.runtime.sendMessage({ type: 'OAUTH_LOGOUT' });
+    document.getElementById('wizard-step-2').classList.remove('active');
+    document.getElementById('wizard-step-1').classList.add('active');
+    updateConnectionStatus('disconnected');
+  });
 
   // Wizard Step 1: Login
   document.getElementById('wizard-login-btn').addEventListener('click', async () => {
@@ -486,6 +544,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         status.className = 'status-error';
         return;
       }
+      await saveUrlToHistory(url);
       status.textContent = '';
       document.getElementById('wizard-step-1').classList.remove('active');
       document.getElementById('wizard-step-2').classList.add('active');
@@ -512,6 +571,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    await saveUrlToHistory(url);
     await chrome.storage.local.set({
       baseUrl: url.replace(/\/+$/, ''),
       oauthTokens: {
@@ -521,6 +581,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         issuer_url: null,
       },
     });
+
+    try {
+      await api.projects.list();
+    } catch (err) {
+      await chrome.storage.local.remove('oauthTokens');
+      showToast('Token rejected by server: ' + (err.message || 'invalid'), 'error');
+      return;
+    }
 
     document.getElementById('wizard-step-1').classList.remove('active');
     document.getElementById('wizard-step-2').classList.add('active');
@@ -597,6 +665,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         repo_url: repo || undefined,
         llm_model: model || undefined,
       });
+      if (repo) {
+        const { repoHistory = [] } = await chrome.storage.local.get('repoHistory');
+        if (!repoHistory.includes(repo)) {
+          repoHistory.unshift(repo);
+          await chrome.storage.local.set({ repoHistory: repoHistory.slice(0, 20) });
+        }
+      }
       hidePanel('create-panel');
       showToast('Session created');
       chrome.runtime.sendMessage({ type: 'REFRESH_SESSIONS' });
@@ -611,7 +686,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Toolbar
-  document.getElementById('btn-create').addEventListener('click', () => {
+  document.getElementById('btn-create').addEventListener('click', async () => {
+    const { repoHistory = [] } = await chrome.storage.local.get('repoHistory');
+    const datalist = document.getElementById('repo-history');
+    datalist.innerHTML = '';
+    repoHistory.forEach(url => {
+      const opt = document.createElement('option');
+      opt.value = url;
+      datalist.appendChild(opt);
+    });
     showPanel('create-panel');
   });
 

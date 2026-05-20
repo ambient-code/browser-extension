@@ -13,7 +13,6 @@
   <div id="title-bar" class="title-bar" style="display:none">
     <div class="title-bar-top">
       <div class="title-bar-left">
-        <span class="title-bar-name">Ambient Code Platform</span>
         <span id="title-connection" class="title-connection">
           <span class="status-dot"></span>
           <span class="title-host"></span>
@@ -22,7 +21,7 @@
       <button id="btn-help" class="btn-icon" title="Documentation">?</button>
     </div>
     <div id="title-versions" class="title-versions">
-      <span id="version-server" class="version-tag" title="Click to copy full hostname">server:unknown</span>
+      <span id="version-server" class="version-tag" title="Click to copy full server URL">server:unknown</span>
       <span id="version-client" class="version-tag" title="Open on GitHub">client:v0.2.0</span>
     </div>
   </div>
@@ -36,27 +35,32 @@
 
     <!-- Step 1: Server URL + Login -->
     <div id="wizard-step-1" class="wizard-step active">
-      <h2>Connect to ACP</h2>
-      <p class="text-secondary">Enter your Ambient Code Platform server URL</p>
+      <div class="wizard-header">
+        <h2>Connect to ACP</h2>
+        <button id="wizard-reset-1" class="btn-icon" title="Reset connection">&#x2715;</button>
+      </div>
       <div class="form-group">
         <label for="wizard-url">Server URL</label>
-        <input type="url" id="wizard-url" placeholder="https://api.ambient-code.com">
+        <input type="url" id="wizard-url" placeholder="https://api.ambient-code.com" list="url-history">
+        <datalist id="url-history"></datalist>
       </div>
-      <button id="wizard-login-btn" class="btn btn-primary">Login with Red Hat SSO</button>
+      <div class="wizard-divider"><span>Sign in with</span></div>
+      <button id="wizard-login-btn" class="btn btn-primary" style="width:100%">Red Hat SSO</button>
       <div id="wizard-login-status"></div>
-      <div class="wizard-divider">
-        <span>OR</span>
-      </div>
+      <div class="wizard-divider"><span>OR</span></div>
       <div class="form-group">
         <label for="wizard-token">Access Token</label>
-        <input type="password" id="wizard-token" placeholder="Paste token from acpctl config get access_token">
+        <input type="password" id="wizard-token" placeholder="From: acpctl config get access_token">
       </div>
       <button id="wizard-token-btn" class="btn btn-secondary" style="width:100%">Use Token</button>
     </div>
 
     <!-- Step 2: Select Workspace -->
     <div id="wizard-step-2" class="wizard-step">
-      <h2>Select Workspace</h2>
+      <div class="wizard-header">
+        <h2>Select Workspace</h2>
+        <button id="wizard-back-to-login" class="btn-icon" title="Back to login">&#x2190;</button>
+      </div>
       <p class="text-secondary">Choose a project workspace</p>
       <div class="form-group">
         <label for="wizard-workspace">Workspace</label>
@@ -120,12 +124,17 @@
           <textarea id="create-prompt" rows="3" placeholder="What should the agent work on?"></textarea>
         </div>
         <div class="form-group">
-          <label for="create-repo">Repository URL (optional)</label>
-          <input type="text" id="create-repo" placeholder="https://github.com/org/repo">
+          <label for="create-repo">Repository URL<br><span class="text-muted" style="font-weight:400;text-transform:none;font-size:12px">Cloned into workspace for context (optional)</span></label>
+          <input type="text" id="create-repo" placeholder="https://github.com/org/repo" list="repo-history">
+          <datalist id="repo-history"></datalist>
         </div>
         <div class="form-group">
           <label for="create-model">Model</label>
-          <input type="text" id="create-model" value="claude-sonnet-4-6" placeholder="claude-sonnet-4-6">
+          <select id="create-model">
+            <option value="claude-sonnet-4-6" selected>Claude Sonnet 4.6</option>
+            <option value="claude-opus-4-6">Claude Opus 4.6</option>
+            <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
+          </select>
         </div>
         <button id="create-submit" class="btn btn-primary" style="width:100%">Create Session</button>
       </div>

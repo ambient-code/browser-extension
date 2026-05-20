@@ -289,6 +289,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 });
 
+chrome.action.onClicked.addListener((tab) => {
+  chrome.sidePanel.open({ windowId: tab.windowId });
+});
+
 (async () => {
   if (await isAuthenticated()) {
     const { projectName } = await getConfig();

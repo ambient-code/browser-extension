@@ -4,106 +4,91 @@ Chrome extension (Manifest V3) for monitoring and interacting with Ambient Code 
 
 ## Stack
 
-- Vanilla JS (no framework, no build step)
+- Vanilla JS (no framework, no build step, no ES modules)
 - Chrome Extensions API (Manifest V3)
 - SSE via fetch + ReadableStream (not EventSource — supports auth headers)
-- CSS custom properties for theming (dark/light)
+- CSS custom properties for theming (dark/light, light default)
 - Red Hat SSO OIDC (authorization code + PKCE) for authentication
 
 ## Structure
 
-- `manifest.json` — Extension manifest (permissions: sidePanel, storage, identity)
+- `manifest.json` — Extension manifest (permissions: sidePanel, storage, identity, activeTab)
 - `oauth.js` — OIDC auth code + PKCE flow via chrome.identity.launchWebAuthFlow
-- `api-client.js` — Centralized API client with resource namespaces (sessions, projects)
+- `api-client.js` — Centralized API client with resource namespaces + SSE parser
 - `utils.js` — Shared helpers (escHtml, timeAgo, getConfig, loadingDotsSVG, showToast)
-- `background.js` — Service worker: polling, SSE event streaming, notifications, badge
-- `sidepanel.js` — Main UI: session list, chat view, create session, settings, wizard
+- `help-prompt.js` — Comprehensive ACP knowledge prompt for help chatbot sessions
+- `background.js` — Service worker: polling, SSE event streaming, notifications, badge, action click
+- `sidepanel.js` — Main UI: session list, chat, create session, settings, wizard, help panel, project switcher
 - `popup.js` — Notification popup (3 most recent)
-- `theme-init.js` — Sync theme application before first paint
-- `styles.css` — All styles (dark-first, CSS custom properties)
-
-## Key Patterns
-
-- No ES modules — service worker uses `importScripts()`, HTML pages use `<script>` tags
-- Config stored in `chrome.storage.local`: baseUrl, projectName, oauthTokens, theme
-- Every API request requires `Authorization: Bearer {jwt}` + `X-Ambient-Project: {projectName}`
-- All API endpoints under `/api/ambient/v1/`
-- Session identity by `id` (opaque string), `name` for display
-- SSE parsing via fetch + ReadableStream (parseSSEStream helper in api-client.js)
-- All DOM text insertion uses `escHtml()` to prevent XSS
-- Adaptive polling: 15s normal, 3s during transitional phases
-
-## ACP API v1 Endpoints
-
-Base: `{baseUrl}/api/ambient/v1`
-
-- `GET /sessions?page=&size=` — List sessions
-- `POST /sessions` — Create session
-- `POST /sessions/{id}/start` | `POST /sessions/{id}/stop` — Lifecycle
-- `GET /sessions/{id}/messages?after_seq=N` — List messages (JSON) or SSE stream
-- `POST /sessions/{id}/messages` — Send message `{ event_type: "user", payload: "..." }`
-- `GET /sessions/{id}/events` — Raw AG-UI event stream (SSE)
-- `GET /projects` | `POST /projects` | `DELETE /projects/{id}` — Workspace CRUD
-
-## Authentication
-
-OIDC authorization code + PKCE via Red Hat SSO:
-- Issuer: `https://sso.redhat.com/auth/realms/redhat-external`
-- Client ID: `ocm-cli`
-- Flow: chrome.identity.launchWebAuthFlow → code exchange → JWT stored in chrome.storage.local
-- Auto-refresh before expiry, AUTH_EXPIRED broadcast on failure
+- `theme-init.js` — Sync theme before first paint
+- `styles.css` — All styles (CSS custom properties, dark-first with light default)
+- `essence.md` — Technology-agnostic description of what the extension does
+- `spec.md` — Given/When/Then specification (platform spec format)
 
 ## Development
 
-Load as unpacked extension in `chrome://extensions` with Developer mode enabled. No build step required — edit files and reload the extension.
+Load as unpacked extension in `chrome://extensions` with Developer mode enabled. No build step — edit files and reload.
 
-Use `chrome-devtools` MCP server (configured in user settings) for live browser testing during development.
+### Reload after code changes
+1. Go to `chrome://extensions`
+2. Click the reload icon on the ACP extension
+3. Close and reopen the side panel
 
-
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:7510c1e2 -->
-## Beads Issue Tracker
-
-This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
-
-### Quick Reference
-
+### Get a fresh token (tokens expire in ~5 minutes)
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>         # Complete work
+acpctl login --use-auth-code --url <server-url>
+python3 -c "import json; print(json.load(open('$HOME/Library/Application Support/ambient/config.json'))['access_token'])" | pbcopy
 ```
+Paste into the extension's token field.
 
-### Rules
+### Debug
+- **Side panel DevTools**: Right-click the side panel → Inspect
+- **Service worker DevTools**: `chrome://extensions` → "service worker" link under the extension
+- Check service worker console for polling/SSE errors and Network tab for API call failures
 
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+Use `chrome-devtools` MCP server (configured in user settings) for live browser testing.
 
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+## API Contract
 
-## Session Completion
+Base: `{baseUrl}/api/ambient/v1`
 
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+Every request requires: `Authorization: Bearer {jwt}` + `X-Ambient-Project: {projectName}`
 
-**MANDATORY WORKFLOW:**
+- Sessions: `GET/POST /sessions`, `POST /sessions/{id}/start|stop`, `DELETE /sessions/{id}`
+- Messages: `GET/POST /sessions/{id}/messages` (REST), `GET /sessions/{id}/messages?after_seq=N` with `Accept: text/event-stream` (SSE)
+- Events: `GET /sessions/{id}/events` with `Accept: text/event-stream` (raw AG-UI stream)
+- Projects: `GET/POST /projects`, `PATCH/DELETE /projects/{id}`
 
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
+List responses wrapped as `{ kind, page, size, total, items: [...] }`.
 
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
-<!-- END BEADS INTEGRATION -->
+## Key Patterns
+
+- Service worker uses `importScripts()`, no ES modules
+- All DOM text insertion uses `escHtml()` for XSS prevention
+- SSE via fetch + ReadableStream with manual line parsing (parseSSEStream in api-client.js)
+- Overlay panels use `.overlay-panel.active` class toggle via showPanel()/hidePanel()
+- Inline confirmation for destructive actions (Stop/Delete → Confirm?/No button pair, no browser dialogs)
+- Adaptive polling: 15s normal, 3s during transitional phases (Creating, Pending, Stopping)
+- Token auto-refresh 60s before expiry; AUTH_EXPIRED broadcast stops all activity on failure
+- SSE reconnect uses exponential backoff (1s→30s max), stops entirely on auth errors
+- Concurrent poll execution guarded with mutex flag
+- Session updates only broadcast when data actually changed (JSON comparison)
+
+## Gotchas
+
+- JWTs from Red Hat SSO expire in ~5 minutes. Manual token paste sets a fake 24h expiry.
+- OAuth `chrome.identity.launchWebAuthFlow` requires the redirect URI registered with SSO. Currently not registered for `ocm-cli` client — OAuth flow fails, manual token paste is the workaround.
+- `escHtml()` has a regex fallback for service worker context where `document` is undefined.
+- CSP blocks inline SVG data URIs unless `img-src 'self' data:` is in the manifest CSP.
+- Service worker can be killed by Chrome at any time — timers and SSE connections are not persistent.
+- `chrome.runtime.sendMessage` throws if no listener exists — always wrap in try/catch via `broadcast()`.
+- The `X-Ambient-Project` header is required on all API calls (discovered from SDK source, not documented in API spec).
+
+## Issue Tracking
+
+This project uses **bd (beads)** for issue tracking. Run `bd list` to see open issues, `bd ready` for available work.
+
+## Spec-Driven Development
+
+- `essence.md` — What the extension is and does (technology-agnostic)
+- `spec.md` — Rebuildable specification with Given/When/Then scenarios

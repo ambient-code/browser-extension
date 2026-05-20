@@ -182,17 +182,25 @@ function renderSessions(sessions) {
       stopBtn.textContent = 'Stop';
       stopBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        stopBtn.textContent = 'Confirm?';
-        stopBtn.className = 'btn btn-danger';
-        const revert = setTimeout(() => {
-          stopBtn.textContent = 'Stop';
-          stopBtn.className = 'btn btn-secondary';
-        }, 3000);
-        stopBtn.addEventListener('click', (e2) => {
+        stopBtn.style.display = 'none';
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'btn btn-danger';
+        confirmBtn.textContent = 'Stop?';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn btn-secondary';
+        cancelBtn.textContent = 'No';
+        confirmBtn.addEventListener('click', (e2) => {
           e2.stopPropagation();
-          clearTimeout(revert);
           transitionSession(s.id, 'stop');
-        }, { once: true });
+        });
+        cancelBtn.addEventListener('click', (e2) => {
+          e2.stopPropagation();
+          confirmBtn.remove();
+          cancelBtn.remove();
+          stopBtn.style.display = '';
+        });
+        actions.appendChild(confirmBtn);
+        actions.appendChild(cancelBtn);
       });
       actions.appendChild(stopBtn);
     } else if (s.phase === 'Stopped' || s.phase === 'Completed' || s.phase === 'Failed') {

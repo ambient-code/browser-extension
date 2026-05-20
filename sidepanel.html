@@ -75,11 +75,14 @@
   <div id="app" style="display:none">
     <!-- Toolbar -->
     <div class="toolbar">
-      <span class="toolbar-label">Sessions</span>
+      <div class="toolbar-left">
+        <span class="toolbar-label">Sessions</span>
+        <select id="toolbar-project" class="toolbar-project-select" title="Switch workspace"></select>
+      </div>
       <div class="toolbar-actions">
-        <button id="btn-refresh" class="btn-icon" title="Refresh">&#x21BB;</button>
-        <button id="btn-create" class="btn-icon" title="New Session">+</button>
-        <button id="btn-settings" class="btn-icon" title="Settings">&#x2699;</button>
+        <button id="btn-refresh" class="btn-icon btn-icon-toolbar" title="Refresh">&#x21BB;</button>
+        <button id="btn-create" class="btn-icon btn-icon-toolbar" title="New Session">+</button>
+        <button id="btn-settings" class="btn-icon btn-icon-toolbar" title="Settings">&#x2699;</button>
       </div>
     </div>
 

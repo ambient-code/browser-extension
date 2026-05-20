@@ -168,15 +168,42 @@ body {
   user-select: none;
 }
 
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
 .toolbar-label {
   font-weight: 600;
   font-size: 15px;
+  flex-shrink: 0;
+}
+
+.toolbar-project-select {
+  font-size: 13px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  min-width: 0;
+  max-width: 160px;
+  cursor: pointer;
 }
 
 .toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+}
+
+.btn-icon-toolbar {
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
 }
 
 /* --- Icon buttons ------------------------------------------ */

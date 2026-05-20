@@ -50,6 +50,14 @@ function showApp() {
   document.getElementById('wizard').style.display = 'none';
   document.getElementById('title-bar').style.display = '';
   document.getElementById('app').style.display = '';
+  loadToolbarProjects();
+}
+
+async function loadToolbarProjects() {
+  try {
+    const cfg = await getConfig();
+    await populateProjectSelect('toolbar-project', cfg.projectName);
+  } catch (_) {}
 }
 
 function hideApp() {
@@ -771,6 +779,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       await navigator.clipboard.writeText(cfg.baseUrl);
       showToast('Server URL copied', 'success');
     }
+  });
+
+  // Toolbar: project switcher
+  document.getElementById('toolbar-project').addEventListener('change', async (e) => {
+    const projectName = e.target.value;
+    if (!projectName) return;
+    await chrome.storage.local.set({ projectName });
+    try { chrome.runtime.sendMessage({ type: 'REFRESH_SESSIONS' }); } catch (_) {}
+    loadSessions();
+    showToast(`Switched to ${projectName}`, 'success');
   });
 
   // Title bar: server version click → copy hostname

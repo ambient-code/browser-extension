@@ -182,9 +182,17 @@ function renderSessions(sessions) {
       stopBtn.textContent = 'Stop';
       stopBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (confirm(`Stop session "${s.name}"?`)) {
+        stopBtn.textContent = 'Confirm?';
+        stopBtn.className = 'btn btn-danger';
+        const revert = setTimeout(() => {
+          stopBtn.textContent = 'Stop';
+          stopBtn.className = 'btn btn-secondary';
+        }, 3000);
+        stopBtn.addEventListener('click', (e2) => {
+          e2.stopPropagation();
+          clearTimeout(revert);
           transitionSession(s.id, 'stop');
-        }
+        }, { once: true });
       });
       actions.appendChild(stopBtn);
     } else if (s.phase === 'Stopped' || s.phase === 'Completed' || s.phase === 'Failed') {
@@ -213,8 +221,11 @@ function renderSessions(sessions) {
 async function transitionSession(id, action) {
   try {
     await api.sessions[action](id);
-    chrome.runtime.sendMessage({ type: 'SESSION_TRANSITIONING' });
-    chrome.runtime.sendMessage({ type: 'REFRESH_SESSIONS' });
+    try { chrome.runtime.sendMessage({ type: 'SESSION_TRANSITIONING' }); } catch (_) {}
+    try { chrome.runtime.sendMessage({ type: 'REFRESH_SESSIONS' }); } catch (_) {}
+    loadSessions();
+    const pastTense = action === 'stop' ? 'stopped' : 'started';
+    showToast(`Session ${pastTense}`, 'success');
   } catch (err) {
     showToast(`Failed to ${action} session: ${err.message}`, 'error');
   }
@@ -761,11 +772,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  document.getElementById('settings-delete-workspace').addEventListener('click', async () => {
+  document.getElementById('settings-delete-workspace').addEventListener('click', async function handler() {
+    const btn = this;
     const select = document.getElementById('settings-workspace');
     const name = select.value;
     if (!name) return;
-    if (!confirm('Delete workspace "' + name + '"? This cannot be undone.')) return;
+    if (btn.dataset.confirming !== 'true') {
+      btn.dataset.confirming = 'true';
+      btn.textContent = `Confirm delete "${name}"?`;
+      setTimeout(() => {
+        btn.dataset.confirming = '';
+        btn.textContent = 'Delete Current Workspace';
+      }, 3000);
+      return;
+    }
+    btn.dataset.confirming = '';
+    btn.textContent = 'Delete Current Workspace';
     try {
       await api.projects.delete(name);
       await loadSettingsPanel();

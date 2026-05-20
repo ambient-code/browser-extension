@@ -169,6 +169,39 @@
         </div>
       </div>
     </div>
+    <!-- Help Panel (overlay) -->
+    <div id="help-panel" class="overlay-panel">
+      <div class="panel-header">
+        <button id="help-back" class="btn-icon">&larr;</button>
+        <span class="panel-title">Help</span>
+      </div>
+      <div class="panel-body">
+        <div class="help-welcome">
+          <div class="help-greeting">How can we help?</div>
+          <p class="text-secondary">Ask questions about the Ambient Code Platform or browse resources below.</p>
+        </div>
+        <div class="help-chat-area">
+          <div id="help-messages" class="help-messages"></div>
+          <div class="help-input-area">
+            <input type="text" id="help-input" placeholder="Ask a question..." autocomplete="off">
+            <button id="help-send" class="btn btn-primary">Send</button>
+          </div>
+          <div id="help-status" class="help-status"></div>
+        </div>
+        <div class="help-links">
+          <div class="help-links-title">Resources</div>
+          <a class="help-link" href="https://github.com/ambient-code/platform#readme" target="_blank">
+            <span>Documentation</span><span class="help-link-icon">&#x2197;</span>
+          </a>
+          <a class="help-link" href="https://github.com/ambient-code/platform/issues" target="_blank">
+            <span>Report an issue</span><span class="help-link-icon">&#x2197;</span>
+          </a>
+          <a class="help-link" href="https://github.com/ambient-code/platform/discussions" target="_blank">
+            <span>Community discussions</span><span class="help-link-icon">&#x2197;</span>
+          </a>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="utils.js"></script>

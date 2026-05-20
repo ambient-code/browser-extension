@@ -846,6 +846,85 @@ select {
   margin: 0;
 }
 
+/* --- Help panel -------------------------------------------- */
+.help-welcome {
+  text-align: center;
+  padding: 16px 0 8px;
+}
+
+.help-greeting {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.help-chat-area {
+  margin: 12px 0;
+}
+
+.help-messages {
+  min-height: 60px;
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.help-input-area {
+  display: flex;
+  gap: 8px;
+}
+
+.help-input-area input {
+  flex: 1;
+}
+
+.help-status {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  min-height: 16px;
+}
+
+.help-links {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.help-links-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.help-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 14px;
+  transition: background 0.12s;
+}
+
+.help-link:hover {
+  background: var(--bg-surface);
+}
+
+.help-link-icon {
+  color: var(--accent);
+  font-size: 14px;
+}
+
 /* --- General layout for side panel ------------------------- */
 #app {
   display: flex;

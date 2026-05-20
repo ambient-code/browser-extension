@@ -456,6 +456,81 @@ function disconnectChatSSE() {
   }
 }
 
+let helpSessionId = null;
+let helpPendingMessages = [];
+
+async function sendHelpMessage() {
+  const input = document.getElementById('help-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  const container = document.getElementById('help-messages');
+  const userBubble = document.createElement('div');
+  userBubble.className = 'chat-bubble user';
+  userBubble.textContent = text;
+  container.appendChild(userBubble);
+
+  const status = document.getElementById('help-status');
+
+  if (!helpSessionId) {
+    status.textContent = 'Starting help session...';
+    helpPendingMessages.push(text);
+    try {
+      const cfg = await getConfig();
+      const session = await api.sessions.create({
+        name: 'help-' + Date.now(),
+        prompt: 'You are a helpful assistant for the Ambient Code Platform. Answer questions about ACP features, sessions, agents, and workflows.',
+        project_id: cfg.projectName,
+        llm_model: 'claude-sonnet-4-6',
+      });
+      helpSessionId = session.id;
+      await api.sessions.start(helpSessionId);
+      status.textContent = 'Connected';
+      for (const msg of helpPendingMessages) {
+        await api.sessions.sendMessage(helpSessionId, msg);
+      }
+      helpPendingMessages = [];
+      connectChatSSEForHelp(helpSessionId, container);
+      setTimeout(() => { status.textContent = ''; }, 2000);
+    } catch (err) {
+      status.textContent = 'Failed to start help session: ' + err.message;
+      helpPendingMessages = [];
+    }
+    return;
+  }
+
+  try {
+    await api.sessions.sendMessage(helpSessionId, text);
+  } catch (err) {
+    showToast('Failed to send: ' + err.message, 'error');
+  }
+}
+
+function connectChatSSEForHelp(sessionId, container) {
+  let seq = 0;
+  (async () => {
+    try {
+      const response = await api.sessions.streamMessages(sessionId, seq);
+      await parseSSEStream(
+        response,
+        (msg) => {
+          if (msg.seq > seq && msg.event_type === 'assistant') {
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-bubble assistant';
+            bubble.textContent = msg.payload;
+            container.appendChild(bubble);
+            container.scrollTop = container.scrollHeight;
+            seq = msg.seq;
+          }
+        },
+        () => {},
+        new AbortController().signal
+      );
+    } catch (_) {}
+  })();
+}
+
 async function sendMessage() {
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
@@ -712,9 +787,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.open('https://github.com/ambient-code/browser-extension', '_blank');
   });
 
-  // Title bar: help button → open docs
+  // Help panel
   document.getElementById('btn-help').addEventListener('click', () => {
-    window.open('https://github.com/ambient-code/browser-extension#readme', '_blank');
+    showPanel('help-panel');
+  });
+
+  document.getElementById('help-back').addEventListener('click', () => {
+    hidePanel('help-panel');
+  });
+
+  document.getElementById('help-send').addEventListener('click', sendHelpMessage);
+  document.getElementById('help-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendHelpMessage();
+    }
   });
 
   // Create session panel

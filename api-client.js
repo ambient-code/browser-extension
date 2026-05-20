@@ -25,6 +25,7 @@ async function apiRequest(method, path, options = {}) {
     const h = {
       'Authorization': `Bearer ${tkn}`,
       'X-Ambient-Project': config.projectName || '',
+      'User-Agent': 'acp-browser-extension/0.2.0',
       'Accept': stream ? 'text/event-stream' : 'application/json',
     };
     if (body !== undefined) h['Content-Type'] = 'application/json';

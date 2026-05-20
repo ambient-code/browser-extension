@@ -101,6 +101,7 @@ Every API request SHALL include:
 |--------|-------|----------|
 | `Authorization` | `Bearer {access_token}` | Always |
 | `X-Ambient-Project` | `{project_name}` | Always (may be empty during setup) |
+| `User-Agent` | `acp-browser-extension/{version}` | Always |
 | `Content-Type` | `application/json` | On POST/PATCH/PUT |
 | `Accept` | `application/json` or `text/event-stream` | Always |
 

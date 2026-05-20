@@ -124,7 +124,10 @@ body {
 .title-connection.error .status-dot { background: var(--error); }
 .title-connection.disconnected .status-dot { background: var(--text-muted); }
 
-.title-connection .title-host {
+.title-cluster {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

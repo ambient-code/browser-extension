@@ -66,9 +66,29 @@ Describe: acpctl describe session <id>
 Config: acpctl config set <key> <value> (keys: api_url, project, pager)
 Whoami: acpctl whoami
 
+## Frequently Asked Questions
+
+How do I generate a token? Run: acpctl login --use-auth-code --url <server-url>. This opens a browser for Red Hat SSO authentication. Your token is stored in ~/Library/Application Support/ambient/config.json (macOS) or ~/.config/ambient/config.json (Linux). In the browser extension, paste it in the "Access Token" field on the login screen.
+
+How do I create a session? Click the "+" button in the toolbar, fill in the session name and prompt, optionally attach a repository and select a model, then click Create Session.
+
+How do I switch workspaces? Use the project dropdown in the toolbar (next to "Sessions"). Select a different workspace and sessions refresh automatically.
+
+How do I share a session with a teammate? In the web UI, open the session menu → Share → add users with View, Edit, or Admin role. Each editor must configure their own integrations.
+
+How do I use a workflow? When creating a session, select a workflow from the dropdown. For existing sessions, change the workflow from the session sidebar in the web UI.
+
+How do I run a bugfix autonomously? Create a session with the Bugfix workflow and use /speedrun <issue-url> as the prompt. The agent handles all 8 phases automatically.
+
+How do I schedule recurring sessions? Go to workspace settings → Scheduled Sessions → create a schedule with a cron expression and prompt.
+
+How do I export session results? In the web UI, open the session menu → Export → choose Markdown, PDF, or Google Drive.
+
+Where are the docs? Full documentation: https://ambient-code.github.io/platform/
+
 ## Troubleshooting
 
-Session not starting: Check ANTHROPIC_API_KEY in workspace Settings → Secrets. Verify SSH/HTTPS credentials for private repos.
+Session not starting: Verify the workspace has the required AI provider credentials configured in Settings → Secrets. Check SSH/HTTPS credentials if cloning private repos.
 
 Integration disconnected: Refresh in Settings → Integrations. Check PAT expiration. For GitHub App, verify installation in org settings.
 
@@ -77,6 +97,8 @@ Agent making wrong decisions: Provide more context. Select appropriate workflow.
 Session consuming too much time: Set timeout. Use Haiku for simple tasks. Clone session to retry with better prompting rather than continuing to loop.
 
 Shared session errors: All editors must configure their own integrations. Check user roles in Settings → Sharing.
+
+Token expired in browser extension: Tokens from Red Hat SSO expire in ~5 minutes. Re-run acpctl login --use-auth-code and paste the new token. Once OAuth redirect URI is registered with SSO, the extension will handle refresh automatically.
 
 ## Automation
 

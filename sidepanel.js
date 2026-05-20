@@ -654,6 +654,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadSessions();
   });
 
+  // Title bar: cluster name click → copy full server URL
+  document.getElementById('title-cluster').addEventListener('click', async () => {
+    const cfg = await getConfig();
+    if (cfg.baseUrl) {
+      await navigator.clipboard.writeText(cfg.baseUrl);
+      showToast('Server URL copied', 'success');
+    }
+  });
+
   // Title bar: server version click → copy hostname
   document.getElementById('version-server').addEventListener('click', async () => {
     const cfg = await getConfig();

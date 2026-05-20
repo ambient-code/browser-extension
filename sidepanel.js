@@ -242,7 +242,6 @@ function openChat(session) {
 
 async function loadChatHistory(sessionId) {
   const container = document.getElementById('chat-messages');
-  container.innerHTML = '';
   const loading = document.createElement('div');
   loading.className = 'loading-indicator';
   loading.innerHTML = loadingDotsSVG();
@@ -250,14 +249,14 @@ async function loadChatHistory(sessionId) {
 
   try {
     const messages = await api.sessions.listMessages(sessionId, 0);
-    container.innerHTML = '';
+    loading.remove();
     if (messages && messages.length > 0) {
       messages.forEach(msg => renderMessage(msg));
       lastSeq = Math.max(...messages.map(m => m.seq), 0);
     }
     scrollChatToBottom();
   } catch (err) {
-    container.innerHTML = '';
+    loading.remove();
     const errDiv = document.createElement('div');
     errDiv.className = 'empty-state';
     errDiv.textContent = 'Failed to load messages: ' + err.message;

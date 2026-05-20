@@ -141,9 +141,9 @@ const api = {
     stop: (id) => apiRequest('POST', `/sessions/${id}/stop`),
     delete: (id) => apiRequest('DELETE', `/sessions/${id}`),
     listMessages: (id, afterSeq) =>
-      apiRequest('GET', `/sessions/${id}/messages`, { params: { after_seq: afterSeq || 0 } }),
+      apiRequest('GET', `/sessions/${id}/messages`, { params: { after_seq: afterSeq || 0 }, timeout: 60000 }),
     sendMessage: (id, payload) =>
-      apiRequest('POST', `/sessions/${id}/messages`, { body: { event_type: 'user', payload } }),
+      apiRequest('POST', `/sessions/${id}/messages`, { body: { event_type: 'user', payload }, timeout: 60000 }),
     streamMessages: (id, afterSeq) =>
       apiRequest('GET', `/sessions/${id}/messages`, { params: { after_seq: afterSeq || 0 }, stream: true }),
     streamEvents: (id) =>

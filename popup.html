@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="styles.css">
+  <script src="theme-init.js"></script>
+  <style>
+    body { width: 360px; min-height: 100px; max-height: 500px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <div class="header" style="padding:8px 12px">
+    <span class="header-title" style="font-size:14px">Notifications</span>
+    <button id="mark-all-read" class="btn btn-secondary" style="font-size:12px;padding:4px 8px">Mark all read</button>
+  </div>
+  <div id="notification-list"></div>
+  <div id="popup-empty" class="empty-state" style="padding:20px;display:none">
+    <p style="font-size:13px">No notifications</p>
+  </div>
+  <div style="padding:8px 12px;border-top:1px solid var(--border)">
+    <button id="open-sidepanel" class="btn btn-primary" style="width:100%;font-size:13px">Open Side Panel</button>
+  </div>
+
+  <script src="utils.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

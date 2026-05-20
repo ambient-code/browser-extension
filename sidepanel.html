@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="styles.css">
+  <script src="theme-init.js"></script>
+</head>
+<body>
+  <!-- Toast container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Title bar (always visible when app is shown) -->
+  <div id="title-bar" class="title-bar" style="display:none">
+    <div class="title-bar-top">
+      <div class="title-bar-left">
+        <span class="title-bar-name">Ambient Code Platform</span>
+        <span id="title-connection" class="title-connection">
+          <span class="status-dot"></span>
+          <span class="title-host"></span>
+        </span>
+      </div>
+      <button id="btn-help" class="btn-icon" title="Documentation">?</button>
+    </div>
+    <div id="title-versions" class="title-versions">
+      <span id="version-server" class="version-tag" title="Click to copy full hostname">server:unknown</span>
+      <span id="version-client" class="version-tag" title="Open on GitHub">client:v0.2.0</span>
+    </div>
+  </div>
+
+  <!-- Setup Wizard (shown when not authenticated or no project) -->
+  <div id="wizard" class="wizard" style="display:none">
+    <div class="wizard-steps-indicator">
+      <span class="step-dot active" data-step="1"></span>
+      <span class="step-dot" data-step="2"></span>
+    </div>
+
+    <!-- Step 1: Server URL + Login -->
+    <div id="wizard-step-1" class="wizard-step active">
+      <h2>Connect to ACP</h2>
+      <p class="text-secondary">Enter your Ambient Code Platform server URL</p>
+      <div class="form-group">
+        <label for="wizard-url">Server URL</label>
+        <input type="url" id="wizard-url" placeholder="https://api.ambient-code.com">
+      </div>
+      <button id="wizard-login-btn" class="btn btn-primary">Login with Red Hat SSO</button>
+      <div id="wizard-login-status"></div>
+      <div class="wizard-divider">
+        <span>OR</span>
+      </div>
+      <div class="form-group">
+        <label for="wizard-token">Access Token</label>
+        <input type="password" id="wizard-token" placeholder="Paste token from acpctl config get access_token">
+      </div>
+      <button id="wizard-token-btn" class="btn btn-secondary" style="width:100%">Use Token</button>
+    </div>
+
+    <!-- Step 2: Select Workspace -->
+    <div id="wizard-step-2" class="wizard-step">
+      <h2>Select Workspace</h2>
+      <p class="text-secondary">Choose a project workspace</p>
+      <div class="form-group">
+        <label for="wizard-workspace">Workspace</label>
+        <select id="wizard-workspace"><option value="">Select...</option></select>
+      </div>
+      <button id="wizard-go-btn" class="btn btn-primary" style="width:100%">Go</button>
+      <p class="text-muted" style="margin:12px 0 0;text-align:center">Or create a new one:</p>
+      <div class="form-group" style="display:flex;gap:8px;margin-top:4px">
+        <input type="text" id="wizard-new-workspace" placeholder="workspace-name" style="flex:1">
+        <button id="wizard-create-workspace-btn" class="btn btn-secondary">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App (shown when authenticated + project selected) -->
+  <div id="app" style="display:none">
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <span class="toolbar-label">Sessions</span>
+      <div class="toolbar-actions">
+        <button id="btn-refresh" class="btn-icon" title="Refresh">&#x21BB;</button>
+        <button id="btn-create" class="btn-icon" title="New Session">+</button>
+        <button id="btn-settings" class="btn-icon" title="Settings">&#x2699;</button>
+      </div>
+    </div>
+
+    <!-- Session List -->
+    <div id="session-list" class="session-list">
+      <div class="empty-state">
+        <p>No sessions yet</p>
+      </div>
+    </div>
+
+    <!-- Chat Panel (overlay) -->
+    <div id="chat-panel" class="overlay-panel">
+      <div class="panel-header">
+        <button id="chat-back" class="btn-icon">&larr;</button>
+        <span id="chat-title" class="panel-title"></span>
+        <span id="chat-phase" class="phase-badge"></span>
+      </div>
+      <div id="chat-messages" class="chat-messages"></div>
+      <div id="chat-input-area" class="chat-input-area">
+        <input type="text" id="chat-input" placeholder="Send a message..." autocomplete="off">
+        <button id="chat-send" class="btn btn-primary">Send</button>
+      </div>
+    </div>
+
+    <!-- Create Session Panel (overlay) -->
+    <div id="create-panel" class="overlay-panel">
+      <div class="panel-header">
+        <button id="create-back" class="btn-icon">&larr;</button>
+        <span class="panel-title">New Session</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label for="create-name">Session Name</label>
+          <input type="text" id="create-name" placeholder="my-session">
+        </div>
+        <div class="form-group">
+          <label for="create-prompt">Initial Prompt</label>
+          <textarea id="create-prompt" rows="3" placeholder="What should the agent work on?"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="create-repo">Repository URL (optional)</label>
+          <input type="text" id="create-repo" placeholder="https://github.com/org/repo">
+        </div>
+        <div class="form-group">
+          <label for="create-model">Model</label>
+          <input type="text" id="create-model" value="claude-sonnet-4-6" placeholder="claude-sonnet-4-6">
+        </div>
+        <button id="create-submit" class="btn btn-primary" style="width:100%">Create Session</button>
+      </div>
+    </div>
+
+    <!-- Settings Panel (overlay) -->
+    <div id="settings-panel" class="overlay-panel">
+      <div class="panel-header">
+        <button id="settings-back" class="btn-icon">&larr;</button>
+        <span class="panel-title">Settings</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label>Account</label>
+          <div id="auth-status" class="auth-status"></div>
+        </div>
+        <div class="form-group">
+          <label for="settings-workspace">Workspace</label>
+          <select id="settings-workspace"></select>
+        </div>
+        <div class="form-group" style="display:flex;gap:8px">
+          <input type="text" id="settings-new-workspace" placeholder="New workspace" style="flex:1">
+          <button id="settings-create-workspace" class="btn btn-secondary">Create</button>
+        </div>
+        <button id="settings-delete-workspace" class="btn btn-danger" style="width:100%">Delete Current Workspace</button>
+        <div class="form-group">
+          <label for="settings-theme">Theme</label>
+          <select id="settings-theme">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Server</label>
+          <div id="settings-server-url" class="text-muted"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="utils.js"></script>
+  <script src="oauth.js"></script>
+  <script src="api-client.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

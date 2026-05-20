@@ -57,10 +57,6 @@ async function _pollSessionsInner() {
   }
 
   for (const s of sessions) {
-    const prev = lastKnownPhases.get(s.id);
-    if (prev !== undefined && prev !== s.phase) {
-      onPhaseChange(s, prev);
-    }
     lastKnownPhases.set(s.id, s.phase);
   }
 
@@ -89,8 +85,6 @@ async function _pollSessionsInner() {
   }
 }
 
-function onPhaseChange(session, previousPhase) {
-}
 
 const sseBackoff = new Map();
 

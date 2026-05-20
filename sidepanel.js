@@ -69,25 +69,31 @@ function hidePanels() {
   document.querySelectorAll('.overlay-panel').forEach(p => p.classList.remove('active'));
 }
 
+async function populateProjectSelect(selectId, selectedName) {
+  const data = await api.projects.list();
+  const projects = data.items || [];
+  const select = document.getElementById(selectId);
+  select.innerHTML = '';
+  if (projects.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No workspaces — create one below';
+    select.appendChild(opt);
+  } else {
+    projects.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.name;
+      opt.textContent = p.displayName || p.name;
+      if (p.name === selectedName) opt.selected = true;
+      select.appendChild(opt);
+    });
+  }
+  return projects;
+}
+
 async function loadWizardWorkspaces() {
   try {
-    const data = await api.projects.list();
-    const projects = data.items || [];
-    const select = document.getElementById('wizard-workspace');
-    select.innerHTML = '';
-    if (projects.length === 0) {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = 'No workspaces — create one below';
-      select.appendChild(opt);
-    } else {
-      projects.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.name;
-        opt.textContent = p.displayName || p.name;
-        select.appendChild(opt);
-      });
-    }
+    await populateProjectSelect('wizard-workspace');
   } catch (err) {
     showToast('Failed to load workspaces: ' + err.message, 'error');
   }
@@ -335,6 +341,7 @@ function scrollChatIfAtBottom() {
 }
 
 let chatSSEBackoff = 1000;
+let chatSSEReconnectTimer = null;
 
 function connectChatSSE(sessionId) {
   if (activeSSEController) {
@@ -360,7 +367,8 @@ function connectChatSSE(sessionId) {
           if (signal.aborted) return;
           const delay = Math.min(chatSSEBackoff, 30000);
           chatSSEBackoff *= 2;
-          setTimeout(() => {
+          chatSSEReconnectTimer = setTimeout(() => {
+            chatSSEReconnectTimer = null;
             if (!signal.aborted && currentSession?.id === sessionId) {
               connectChatSSE(sessionId);
             }
@@ -376,6 +384,10 @@ function connectChatSSE(sessionId) {
 }
 
 function disconnectChatSSE() {
+  if (chatSSEReconnectTimer) {
+    clearTimeout(chatSSEReconnectTimer);
+    chatSSEReconnectTimer = null;
+  }
   if (activeSSEController) {
     activeSSEController.abort();
     activeSSEController = null;
@@ -405,7 +417,7 @@ async function loadSettingsPanel() {
 
   if (authenticated) {
     const badge = document.createElement('span');
-    badge.className = 'auth-badge';
+    badge.className = 'auth-user-badge';
     badge.textContent = 'Logged in';
 
     const logoutBtn = document.createElement('button');
@@ -437,17 +449,7 @@ async function loadSettingsPanel() {
 
   const config = await getConfig();
   try {
-    const projData = await api.projects.list();
-    const projects = projData.items || [];
-    const select = document.getElementById('settings-workspace');
-    select.innerHTML = '';
-    projects.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.name;
-      opt.textContent = p.displayName || p.name;
-      if (p.name === config.projectName) opt.selected = true;
-      select.appendChild(opt);
-    });
+    await populateProjectSelect('settings-workspace', config.projectName);
   } catch (_) {}
 
   document.getElementById('settings-server-url').textContent = config.baseUrl || 'Not set';

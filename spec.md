@@ -429,6 +429,120 @@ default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src
 
 ---
 
+## Testing
+
+### Requirement: End-to-End Test Coverage
+
+The extension SHALL be testable via Cypress or Playwright against a running ACP instance.
+
+#### Scenario: Login and session list
+
+- GIVEN a running ACP server and valid credentials
+- WHEN the user completes the login wizard
+- THEN the session list loads and displays sessions for the selected workspace
+
+#### Scenario: Create and interact with a session
+
+- GIVEN the user is authenticated and has selected a workspace
+- WHEN the user creates a session with a name and prompt
+- THEN the session appears in the list
+- AND the user can open the chat view
+- AND send a message and receive a response
+
+#### Scenario: Session lifecycle
+
+- GIVEN a running session
+- WHEN the user stops it
+- THEN the phase changes to Stopped
+- AND the Start and Delete buttons appear
+- AND the user can restart or delete the session
+
+#### Scenario: Workspace switching
+
+- GIVEN the user has access to multiple workspaces
+- WHEN the user selects a different workspace from the toolbar dropdown
+- THEN the session list updates to show sessions from the new workspace
+
+#### Scenario: Auth expiry recovery
+
+- GIVEN a stored token that has expired
+- WHEN the extension attempts an API call
+- THEN the wizard login screen is shown
+- AND the user can re-authenticate and resume
+
+### Requirement: Unit Testability
+
+Core modules SHALL be testable in isolation without Chrome APIs:
+
+| Module | Testable Without Chrome | Test Strategy |
+|--------|------------------------|---------------|
+| `api-client.js` (apiRequest, parseSSEStream) | Yes (mock fetch) | Verify URL construction, header injection, error handling, SSE parsing |
+| `oauth.js` (base64urlEncode, PKCE generation) | Partially (crypto.subtle available in Node) | Verify PKCE challenge derivation, state generation |
+| `utils.js` (escHtml, timeAgo) | Yes | Verify escaping, time formatting edge cases |
+| `help-prompt.js` | Yes (static string) | Verify prompt contains key sections |
+
+---
+
+## Metrics and Observability
+
+### Requirement: Connection Health Indicator
+
+The extension SHALL provide visible connection health via the title bar status dot:
+
+| State | Color | Meaning |
+|-------|-------|---------|
+| Connected | Green | Last poll succeeded |
+| Connecting | Yellow | Poll in progress or initial load |
+| Error | Red | Auth expired or API unreachable |
+| Disconnected | Gray | No credentials or not configured |
+
+### Requirement: Error Surfacing
+
+All API errors SHALL surface to the user via toast notifications with the error reason from the API response. The extension SHALL NOT silently swallow errors that affect user-visible state.
+
+#### Scenario: API error shown to user
+
+- GIVEN the user performs an action (create session, start, stop, delete)
+- WHEN the API returns a non-2xx response
+- THEN the extension shows an error toast with the `reason` field from the API error body
+- AND the UI remains in a consistent state (no half-applied changes)
+
+### Requirement: Badge Notification Count
+
+The extension badge SHALL display the count of unread notifications. The badge SHALL clear when all notifications are marked as read.
+
+---
+
+## Logging and Debugging
+
+### Requirement: Console Logging
+
+The extension SHALL log to the browser console (visible via DevTools) at these levels:
+
+| Level | What |
+|-------|------|
+| `console.warn` | Poll failures, SSE connection errors, SSE reconnection attempts |
+| `console.error` | Should not be used for expected errors (auth expiry, network issues) |
+| Silent (no log) | Successful operations, normal polling, broadcast failures when no listener exists |
+
+The extension SHALL NOT flood the console — failed SSE reconnections on auth errors SHALL stop reconnecting rather than logging repeatedly.
+
+### Requirement: DevTools Inspectability
+
+- The side panel SHALL be inspectable via right-click → Inspect
+- The service worker SHALL be inspectable via `chrome://extensions` → "service worker" link
+- API requests SHALL be visible in the Network tab of the appropriate DevTools window
+- SSE streams SHALL be visible as long-lived requests in the Network tab
+
+#### Scenario: Debug a failing API call
+
+- GIVEN the user opens the side panel DevTools Network tab
+- WHEN an API call fails
+- THEN the request URL, headers, response status, and error body are visible in the Network tab
+- AND a `console.warn` entry appears in the Console tab
+
+---
+
 ## Specification Quality Checklist
 
 - [x] All requirements are testable (Given/When/Then scenarios)
@@ -438,3 +552,6 @@ default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src
 - [x] Data model captures all entities
 - [x] External interfaces are documented
 - [x] Known gaps from previous implementation are addressed
+- [x] Testing strategy defined (E2E + unit)
+- [x] Observability requirements specified (connection health, error surfacing, badge)
+- [x] Logging and debugging requirements specified

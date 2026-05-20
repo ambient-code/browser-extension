@@ -1,124 +1,87 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Regenerates help-prompt.js by scanning upstream platform docs and CLI help.
-# Run manually or via GHA whenever platform docs change.
+# Regenerates help-prompt.js from upstream GitHub repos.
+# Runs headless in GHA — no local repos, no tokens, no interactive prompts.
 #
-# Prerequisites:
-#   - acpctl on PATH (for CLI reference extraction)
-#   - Access to the platform repo (for docs content)
+# Requires: gh (GitHub CLI, authenticated)
 #
-# Usage:
-#   ./scripts/update-help-prompt.sh [--platform-dir /path/to/platform]
+# Repos scanned:
+#   - ambient-code/platform (docs, CLI, API server, models)
+#   - ambient-code/workflows (available workflows)
+#   - ambient-code/mcp (MCP server docs)
+#   - ambient-code/browser-extension (this repo)
+#   - ambient-code/agentready (repo readiness scorer)
+#   - ambient-code/ambient-action (GitHub Action)
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 OUTPUT="$ROOT_DIR/help-prompt.js"
+TMPDIR="$(mktemp -d)"
+trap 'rm -rf "$TMPDIR"' EXIT
 
-PLATFORM_DIR="${1:-}"
-if [[ "$PLATFORM_DIR" == --platform-dir ]]; then
-  PLATFORM_DIR="${2:-}"
-fi
-if [[ -z "$PLATFORM_DIR" ]]; then
-  # Try common locations
-  for candidate in \
-    "$HOME/repos/platform" \
-    "$HOME/src/platform" \
-    "$(cd "$ROOT_DIR/.." && pwd)/platform"; do
-    if [[ -d "$candidate/docs" ]]; then
-      PLATFORM_DIR="$candidate"
-      break
-    fi
-  done
-fi
+ORG="ambient-code"
+DOCS_URL="https://ambient-code.github.io/platform/"
 
-if [[ -z "$PLATFORM_DIR" || ! -d "$PLATFORM_DIR" ]]; then
-  echo "Error: platform repo not found. Pass --platform-dir /path/to/platform" >&2
-  exit 1
-fi
-
-echo "Platform repo: $PLATFORM_DIR"
-echo "Output: $OUTPUT"
-
-# --- Extract content from platform docs ---
-
-DOCS_DIR="$PLATFORM_DIR/docs/src/content/docs"
-
-extract_section() {
-  local file="$1"
-  if [[ -f "$file" ]]; then
-    # Strip frontmatter and return content
-    sed -n '/^---$/,/^---$/!p' "$file" | head -200
-  fi
+fetch_file() {
+  local repo="$1" path="$2" dest="$3"
+  gh api "repos/$ORG/$repo/contents/$path" --jq '.content' 2>/dev/null \
+    | base64 -d > "$dest" 2>/dev/null || true
 }
 
-# Collect docs content
-CONCEPTS=""
+fetch_dir_listing() {
+  local repo="$1" path="$2"
+  gh api "repos/$ORG/$repo/contents/$path" --jq '.[].name' 2>/dev/null || true
+}
+
+echo "Fetching upstream content..."
+
+# --- Platform docs ---
 for doc in \
-  "$DOCS_DIR/concepts/sessions.md" \
-  "$DOCS_DIR/concepts/scheduled-sessions.md" \
-  "$DOCS_DIR/concepts/workspaces.md" \
-  "$DOCS_DIR/getting-started/cli.md" \
-  "$DOCS_DIR/ecosystem/amber.md" \
-  "$DOCS_DIR/guides/sharing.md" \
-  "$DOCS_DIR/guides/integrations.md"; do
-  if [[ -f "$doc" ]]; then
-    CONCEPTS+="$(extract_section "$doc")"$'\n\n'
+  "docs/src/content/docs/concepts/sessions.md" \
+  "docs/src/content/docs/concepts/scheduled-sessions.md" \
+  "docs/src/content/docs/getting-started/cli.md" \
+  "docs/src/content/docs/ecosystem/amber.md" \
+  "docs/src/content/docs/guides/sharing.md" \
+  "docs/src/content/docs/guides/integrations.md"; do
+  name="$(basename "$doc")"
+  fetch_file "platform" "$doc" "$TMPDIR/platform-$name"
+done
+
+# --- Models from platform source (no token needed) ---
+fetch_file "platform" "components/ambient-api-server/openapi/openapi.sessions.yaml" "$TMPDIR/sessions-spec.yaml"
+MODELS="$(grep -oE 'claude-[a-z]+-[0-9.-]+|gemini-[0-9a-z.-]+' "$TMPDIR/sessions-spec.yaml" 2>/dev/null | sort -u | paste -sd', ' || echo "claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5")"
+
+# --- Workflows repo ---
+WORKFLOW_NAMES="$(fetch_dir_listing "workflows" ".")"
+WORKFLOWS=""
+for wf in $WORKFLOW_NAMES; do
+  if [[ "$wf" != "." && "$wf" != ".." && "$wf" != "README.md" && "$wf" != ".github" ]]; then
+    fetch_file "workflows" "$wf/README.md" "$TMPDIR/wf-$wf.md"
+    wf_desc="$(head -5 "$TMPDIR/wf-$wf.md" 2>/dev/null | grep -v '^#' | grep -v '^$' | head -1 | sed 's/^[[:space:]]*//' || echo "")"
+    if [[ -n "$wf_desc" ]]; then
+      WORKFLOWS+="- $wf: $wf_desc"$'\n'
+    else
+      WORKFLOWS+="- $wf"$'\n'
+    fi
   fi
 done
 
-# --- Extract CLI commands ---
+# --- MCP repo ---
+fetch_file "mcp" "README.md" "$TMPDIR/mcp-readme.md"
 
-CLI_HELP=""
-if command -v acpctl &>/dev/null; then
-  CLI_HELP+="$(acpctl --help 2>&1 | head -30)"$'\n'
-  CLI_HELP+="$(acpctl login --help 2>&1 | head -20)"$'\n'
-  CLI_HELP+="$(acpctl session --help 2>&1 | head -20)"$'\n'
-  CLI_HELP+="$(acpctl create session --help 2>&1 | head -20)"$'\n'
-fi
+# --- AgentReady ---
+fetch_file "agentready" "README.md" "$TMPDIR/agentready-readme.md"
 
-# --- Extract available models from existing sessions ---
+# --- Ambient Action ---
+fetch_file "ambient-action" "README.md" "$TMPDIR/action-readme.md"
 
-MODELS=""
-if command -v acpctl &>/dev/null; then
-  MODELS="$(acpctl get sessions -o json 2>/dev/null | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    models = sorted(set(s.get('llm_model','') for s in data.get('items',[])))
-    print(', '.join(m for m in models if m))
-except: pass
-" 2>/dev/null || echo "claude-sonnet-4-6")"
-fi
+echo "Generating help-prompt.js..."
 
-# --- Extract available workflows ---
-
-WORKFLOWS=""
-WORKFLOW_DIR="$PLATFORM_DIR/../workflows"
-if [[ -d "$WORKFLOW_DIR" ]]; then
-  for wf in "$WORKFLOW_DIR"/*/; do
-    wf_name="$(basename "$wf")"
-    if [[ -f "$wf/README.md" ]]; then
-      wf_desc="$(head -5 "$wf/README.md" | grep -v '^#' | head -1 | sed 's/^[[:space:]]*//')"
-      WORKFLOWS+="- $wf_name: $wf_desc"$'\n'
-    fi
-  done
-fi
-
-# --- Get docs site URL ---
-
-DOCS_URL="https://ambient-code.github.io/platform/"
-
-# --- Generate the prompt ---
-
-cat > "$OUTPUT" << 'PROMPT_START'
+# --- Build the prompt ---
+cat > "$OUTPUT" << 'EOF'
 const HELP_AGENT_PROMPT = `You are the Ambient Code Platform (ACP) help assistant. You help power users — PMs, data scientists, ops engineers — use the platform effectively. You answer questions about features, workflows, troubleshooting, and best practices. Be concise, practical, and direct.
 
-PROMPT_START
-
-# Build the prompt content by assembling sections
-{
-  cat << 'SECTION'
 ## What is ACP?
 
 Kubernetes-native AI automation platform. Users define tasks with prompts, connect repos and tools, and AI agents handle engineering work autonomously or collaboratively. Real-time chat interface for monitoring and interacting with running agents.
@@ -130,16 +93,11 @@ Kubernetes-native AI automation platform. Users define tasks with prompts, conne
 **Sessions:** Single AI agent execution in an isolated container. Lifecycle: Pending → Creating → Running → Stopping → Stopped/Completed/Failed. Real-time chat to collaborate with the agent mid-session.
 
 Session configuration:
-SECTION
+EOF
 
-  # Add models if we found them
-  if [[ -n "$MODELS" ]]; then
-    echo "- Model: $MODELS"
-  else
-    echo "- Model: Claude Sonnet 4.6 (default), Claude Opus 4.6, Claude Haiku 4.5"
-  fi
+echo "- Models available: $MODELS" >> "$OUTPUT"
 
-  cat << 'SECTION'
+cat >> "$OUTPUT" << 'EOF'
 - Temperature: 0.0–2.0 (default 0.7)
 - Max tokens: 100–8,000 (default 4,000)
 - Timeout: 60–1,800 seconds (default 300)
@@ -153,18 +111,33 @@ Session status: working (processing), idle (waiting for input), waiting_input (h
 
 **Workflows:** Structured task templates with system prompts, slash commands, and quality rubrics.
 
+EOF
+
+if [[ -n "$WORKFLOWS" ]]; then
+  echo "Available workflows:" >> "$OUTPUT"
+  echo "$WORKFLOWS" >> "$OUTPUT"
+else
+  cat >> "$OUTPUT" << 'EOF'
 Built-in workflows:
 - Bugfix: 8-phase systematic bug resolution. Commands: /assess, /reproduce, /diagnose, /fix, /test, /review, /document, /pr. Speedrun: /speedrun <issue-url> for autonomous execution.
 - Triage: Analyze open issues, categorize, generate interactive HTML report + bulk operation scripts.
 - Spec-kit: Spec-driven development. Commands: /speckit.specify, /speckit.clarify, /speckit.plan, /speckit.tasks, /speckit.implement, /speckit.checklist.
 - PRD/RFE: Product requirements documents.
 - Custom: Load from any git repo with .ambient/ambient.json config.
+EOF
+fi
+
+cat >> "$OUTPUT" << 'EOF'
 
 **Integrations:** GitHub (App or PAT), GitLab (PAT), Jira (email + API token), Google Drive (OAuth), MCP Tools (workspace-scoped).
 
 **Scheduled Sessions:** Cron-based recurring automation (hourly, daily, weekly, custom). Use cases: nightly code reviews, dependency scans, periodic triage, regression checks.
 
 **Sharing:** Sessions shareable with View/Edit/Admin roles. Each editor uses their own credentials. Actions attributed to the message sender.
+
+**MCP Tools:** Model Context Protocol servers extend agent capabilities within a workspace. The mcp-acp server enables programmatic session management from Claude Desktop or Claude Code CLI.
+
+**AgentReady:** Repository readiness scorer — evaluates repos across 13 categories for AI-assisted development readiness. Run: agentready assess /path/to/repo.
 
 ## Common Tasks
 
@@ -212,11 +185,11 @@ How do I schedule recurring sessions? Go to workspace settings → Scheduled Ses
 
 How do I export session results? In the web UI, open the session menu → Export → choose Markdown, PDF, or Google Drive.
 
-SECTION
+EOF
 
-  echo "Where are the docs? Full documentation: $DOCS_URL"
+echo "Where are the docs? Full documentation: $DOCS_URL" >> "$OUTPUT"
 
-  cat << 'SECTION'
+cat >> "$OUTPUT" << 'EOF'
 
 ## Troubleshooting
 
@@ -234,7 +207,7 @@ Token expired in browser extension: Tokens from Red Hat SSO expire in ~5 minutes
 
 ## Automation
 
-GitHub Action: ambient-code/ambient-action@v0.0.5 — trigger sessions from CI. Modes: fire-and-forget, wait-for-completion, send to existing session.
+GitHub Action: ambient-code/ambient-action — trigger sessions from CI. Modes: fire-and-forget, wait-for-completion, send to existing session.
 
 MCP Server: mcp-acp — use ACP from Claude Desktop or Claude Code CLI. Configure in ~/.config/acp/clusters.yaml.
 
@@ -251,24 +224,8 @@ REST API: POST /api/ambient/v1/sessions with Authorization: Bearer <token> and X
 7. Use right model — Haiku for simple, Sonnet for standard, Opus for complex
 8. Set timeouts — prevent runaway sessions
 9. Clone to retry — better than continuing a confused session
-10. Push changes after review — check diffs before merging
-SECTION
-} >> "$OUTPUT"
-
-# Close the template literal
-echo '`;' >> "$OUTPUT"
-
-# --- Verify output ---
+10. Push changes after review — check diffs before merging`;
+EOF
 
 LINES=$(wc -l < "$OUTPUT")
-echo ""
 echo "Generated $OUTPUT ($LINES lines)"
-echo ""
-
-# Show diff if in git repo
-if git -C "$ROOT_DIR" rev-parse HEAD &>/dev/null; then
-  if git -C "$ROOT_DIR" diff --stat -- help-prompt.js 2>/dev/null | head -5; then
-    echo ""
-    echo "Review changes with: git diff help-prompt.js"
-  fi
-fi

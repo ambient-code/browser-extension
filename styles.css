@@ -88,23 +88,19 @@ body {
 /* --- Title bar --------------------------------------------- */
 .title-bar {
   background: var(--bg-secondary);
-  padding: 10px 16px 8px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--border);
   user-select: none;
 }
 
-.title-bar-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.title-bar-left {
+.title-bar-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
-  min-width: 0;
+}
+
+.title-bar-spacer {
+  flex: 1;
 }
 
 .title-connection {
@@ -134,22 +130,23 @@ body {
   white-space: nowrap;
 }
 
-.title-versions {
-  display: flex;
-  gap: 12px;
-  margin-top: 3px;
-}
-
 .version-tag {
   font-size: 11px;
   color: var(--text-muted);
   cursor: pointer;
   transition: color 0.15s;
+  white-space: nowrap;
 }
 
 .version-tag:hover {
   color: var(--accent);
   text-decoration: underline;
+}
+
+.btn-icon-sm {
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
 }
 
 /* --- Toolbar ----------------------------------------------- */

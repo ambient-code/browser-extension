@@ -9,36 +9,30 @@ function updateConnectionStatus(state) {
   if (!el) return;
   el.className = 'title-connection ' + state;
   const hostEl = el.querySelector('.title-host');
+  const serverEl = document.getElementById('version-server');
   if (state === 'disconnected') {
-    hostEl.textContent = '';
+    if (hostEl) hostEl.textContent = '';
+    if (serverEl) serverEl.textContent = '';
     return;
   }
   getConfig().then(cfg => {
+    if (!cfg.baseUrl) return;
     try {
-      hostEl.textContent = new URL(cfg.baseUrl).hostname.split('.')[0];
+      const hostname = new URL(cfg.baseUrl).hostname;
+      if (hostEl) hostEl.textContent = hostname.split('.').slice(0, 2).join('.');
+      if (serverEl) {
+        serverEl.textContent = hostname;
+        serverEl.title = `Click to copy: ${cfg.baseUrl}`;
+      }
     } catch (_) {
-      hostEl.textContent = cfg.baseUrl || '';
+      if (hostEl) hostEl.textContent = cfg.baseUrl;
     }
   });
 }
 
 function updateVersionDisplay() {
   const clientEl = document.getElementById('version-client');
-  if (clientEl) {
-    clientEl.textContent = `v${CLIENT_VERSION}`;
-  }
-  getConfig().then(cfg => {
-    const serverEl = document.getElementById('version-server');
-    if (serverEl && cfg.baseUrl) {
-      try {
-        const host = new URL(cfg.baseUrl).hostname;
-        serverEl.textContent = host;
-        serverEl.title = `Click to copy: ${cfg.baseUrl}`;
-      } catch (_) {
-        serverEl.textContent = cfg.baseUrl;
-      }
-    }
-  });
+  if (clientEl) clientEl.textContent = `v${CLIENT_VERSION}`;
 }
 
 function showWizard() {

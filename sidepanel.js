@@ -480,7 +480,7 @@ async function sendHelpMessage() {
       const cfg = await getConfig();
       const session = await api.sessions.create({
         name: 'help-' + Date.now(),
-        prompt: 'You are a helpful assistant for the Ambient Code Platform. Answer questions about ACP features, sessions, agents, and workflows.',
+        prompt: HELP_AGENT_PROMPT,
         project_id: cfg.projectName,
         llm_model: 'claude-sonnet-4-6',
       });

@@ -36,7 +36,7 @@ function updateConnectionStatus(state) {
       serverEl.textContent = 'server:unknown';
       serverEl.title = `Click to copy: ${cfg.baseUrl}`;
     }
-    if (clientEl) clientEl.textContent = `client:v${CLIENT_VERSION}`;
+    if (clientEl) clientEl.textContent = `extension:v${CLIENT_VERSION}`;
   });
 }
 
@@ -212,6 +212,41 @@ function renderSessions(sessions) {
         transitionSession(s.id, 'start');
       });
       actions.appendChild(startBtn);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-secondary';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        delBtn.style.display = 'none';
+        startBtn.style.display = 'none';
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'btn btn-danger';
+        confirmBtn.textContent = 'Delete?';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn btn-secondary';
+        cancelBtn.textContent = 'No';
+        confirmBtn.addEventListener('click', async (e2) => {
+          e2.stopPropagation();
+          try {
+            await api.sessions.delete(s.id);
+            showToast('Session deleted', 'success');
+            loadSessions();
+          } catch (err) {
+            showToast(`Failed to delete: ${err.message}`, 'error');
+          }
+        });
+        cancelBtn.addEventListener('click', (e2) => {
+          e2.stopPropagation();
+          confirmBtn.remove();
+          cancelBtn.remove();
+          delBtn.style.display = '';
+          startBtn.style.display = '';
+        });
+        actions.appendChild(confirmBtn);
+        actions.appendChild(cancelBtn);
+      });
+      actions.appendChild(delBtn);
     }
 
     item.appendChild(info);

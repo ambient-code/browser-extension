@@ -329,6 +329,7 @@ async function loadChatHistory(sessionId) {
 function renderMessage(msg) {
   const container = document.getElementById('chat-messages');
   const div = document.createElement('div');
+  div.dataset.timestamp = msg.created_at || new Date().toISOString();
 
   switch (msg.event_type) {
     case 'user':
@@ -464,6 +465,62 @@ function disconnectChatSSE() {
   }
 }
 
+function downloadTranscript(containerId, sessionMeta) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const bubbles = container.querySelectorAll('.chat-bubble');
+  if (!bubbles.length) {
+    showToast('No messages to download', 'info');
+    return;
+  }
+
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10);
+  const lines = [];
+
+  if (sessionMeta) {
+    lines.push(`# ACP Session Transcript`);
+    lines.push('');
+    lines.push(`| Field | Value |`);
+    lines.push(`|-------|-------|`);
+    if (sessionMeta.name) lines.push(`| Name | ${sessionMeta.name} |`);
+    if (sessionMeta.id) lines.push(`| ID | ${sessionMeta.id} |`);
+    if (sessionMeta.status) lines.push(`| Status | ${sessionMeta.status} |`);
+    if (sessionMeta.model) lines.push(`| Model | ${sessionMeta.model} |`);
+    if (sessionMeta.workspace) lines.push(`| Workspace | ${sessionMeta.workspace} |`);
+    if (sessionMeta.created) lines.push(`| Created | ${new Date(sessionMeta.created).toLocaleString()} |`);
+    lines.push(`| Exported | ${now.toLocaleString()} |`);
+  } else {
+    lines.push(`# ACP Help Chat Transcript`);
+    lines.push('');
+    lines.push(`Exported: ${now.toLocaleString()}`);
+  }
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+
+  bubbles.forEach((bubble) => {
+    const role = bubble.classList.contains('user') ? 'user' : 'assistant';
+    const text = bubble.textContent;
+    const ts = bubble.dataset.timestamp || now.toISOString();
+    const time = new Date(ts).toLocaleString();
+    lines.push(`[${time}] **${role}:** ${text}`);
+    lines.push('');
+  });
+
+  const filename = sessionMeta
+    ? `acp-session-${(sessionMeta.name || 'chat').replace(/[^a-z0-9-]/gi, '_')}-${dateStr}.md`
+    : `acp-help-chat-${dateStr}.md`;
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 let helpSessionId = null;
 let helpPendingMessages = [];
 
@@ -476,6 +533,7 @@ async function sendHelpMessage() {
   const container = document.getElementById('help-messages');
   const userBubble = document.createElement('div');
   userBubble.className = 'chat-bubble user';
+  userBubble.dataset.timestamp = new Date().toISOString();
   userBubble.textContent = text;
   container.appendChild(userBubble);
 
@@ -490,7 +548,9 @@ async function sendHelpMessage() {
         name: 'help-' + Date.now(),
         prompt: HELP_AGENT_PROMPT,
         project_id: cfg.projectName,
-        llm_model: 'claude-sonnet-4-6',
+        llm_model: 'claude-haiku-4-5',
+        timeout: 300,
+        max_turns: 20,
       });
       helpSessionId = session.id;
       await api.sessions.start(helpSessionId);
@@ -526,6 +586,7 @@ function connectChatSSEForHelp(sessionId, container) {
           if (msg.seq > seq && msg.event_type === 'assistant') {
             const bubble = document.createElement('div');
             bubble.className = 'chat-bubble assistant';
+            bubble.dataset.timestamp = msg.created_at || new Date().toISOString();
             bubble.textContent = msg.payload;
             container.appendChild(bubble);
             container.scrollTop = container.scrollHeight;
@@ -548,7 +609,7 @@ async function sendMessage() {
   renderMessage({ event_type: 'user', payload: text, seq: lastSeq + 0.5 });
 
   try {
-    await api.sessions.sendMessage(currentSession.id, text);
+    await api.sessions.sendMessage(currentSession.id, '[User Question]\n' + text + '\n[End User Question]');
   } catch (err) {
     showToast('Failed to send message: ' + err.message, 'error');
     input.value = text;
@@ -824,6 +885,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('help-send').addEventListener('click', sendHelpMessage);
+
+  document.getElementById('help-download').addEventListener('click', () => {
+    downloadTranscript('help-messages', null);
+  });
   document.getElementById('help-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -902,6 +967,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('chat-send').addEventListener('click', sendMessage);
+
+  document.getElementById('chat-download').addEventListener('click', async () => {
+    if (!currentSession) return;
+    const cfg = await getConfig();
+    downloadTranscript('chat-messages', {
+      name: currentSession.name,
+      id: currentSession.id,
+      status: currentSession.phase || currentSession.status,
+      model: currentSession.llm_model,
+      workspace: cfg.projectName,
+      created: currentSession.created_at,
+    });
+  });
 
   document.getElementById('chat-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {

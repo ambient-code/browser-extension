@@ -10,8 +10,24 @@ function base64urlEncode(buffer) {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+const ALLOWED_ISSUER_HOSTS = ['sso.redhat.com', 'sso.stage.redhat.com'];
+
+function validateIssuerUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') throw new Error('Issuer URL must use HTTPS');
+    if (!ALLOWED_ISSUER_HOSTS.includes(parsed.hostname)) {
+      throw new Error(`Issuer hostname "${parsed.hostname}" is not in the allowlist`);
+    }
+  } catch (e) {
+    if (e.message.startsWith('Issuer')) throw e;
+    throw new Error('Invalid issuer URL: ' + url);
+  }
+}
+
 async function oauthLogin(serverUrl, issuerUrl) {
   issuerUrl = issuerUrl || OAUTH_DEFAULT_ISSUER;
+  validateIssuerUrl(issuerUrl);
 
   const verifierBytes = crypto.getRandomValues(new Uint8Array(32));
   const codeVerifier = base64urlEncode(verifierBytes.buffer);
@@ -24,6 +40,7 @@ async function oauthLogin(serverUrl, issuerUrl) {
     response_type: 'code',
     client_id: OAUTH_CLIENT_ID,
     redirect_uri: chrome.identity.getRedirectURL(),
+    scope: 'openid',
     state,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
@@ -56,6 +73,12 @@ async function oauthLogin(serverUrl, issuerUrl) {
     throw new Error(`Token exchange failed: ${tokenRes.status}`);
   }
   const tokenData = await tokenRes.json();
+  if (!tokenData.access_token || typeof tokenData.access_token !== 'string') {
+    throw new Error('Token response missing access_token');
+  }
+  if (!tokenData.expires_in || typeof tokenData.expires_in !== 'number' || tokenData.expires_in <= 0) {
+    throw new Error('Token response has invalid expires_in');
+  }
 
   await chrome.storage.local.set({
     oauthTokens: {
@@ -67,12 +90,14 @@ async function oauthLogin(serverUrl, issuerUrl) {
     baseUrl: serverUrl,
   });
 
-  return tokenData;
+  return true;
 }
 
 async function oauthRefreshToken() {
   const { oauthTokens: tokens } = await chrome.storage.local.get('oauthTokens');
   if (!tokens || !tokens.refresh_token) return null;
+  if (!tokens.issuer_url) return null;
+  try { validateIssuerUrl(tokens.issuer_url); } catch (_) { return null; }
 
   let res;
   try {

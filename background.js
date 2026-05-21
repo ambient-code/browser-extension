@@ -267,8 +267,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
     case 'OAUTH_LOGIN': {
       oauthLogin(msg.serverUrl, msg.issuerUrl)
-        .then((result) => {
-          sendResponse({ ok: true, result });
+        .then(() => {
+          sendResponse({ ok: true });
           startPolling();
         })
         .catch((err) => {

@@ -1,4 +1,5 @@
 .DS_Store
+handoff.md
 *.pem
 node_modules/
 .claude/

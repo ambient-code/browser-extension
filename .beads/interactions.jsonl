@@ -1,2 +1,6 @@
 {"id":"int-b1fd287f","kind":"field_change","created_at":"2026-05-20T20:40:02.057322Z","actor":"Ambient Code Bot","issue_id":"acp-ext-93z","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
 {"id":"int-420b3efd","kind":"field_change","created_at":"2026-05-20T20:41:28.853204Z","actor":"Ambient Code Bot","issue_id":"acp-ext-93z","extra":{"field":"status","new_value":"open","old_value":"in_progress"}}
+{"id":"int-585d93ca","kind":"field_change","created_at":"2026-05-21T03:11:52.223926Z","actor":"Ambient Code Bot","issue_id":"acp-ext-cqa","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
+{"id":"int-166f8276","kind":"field_change","created_at":"2026-05-21T03:11:52.438021Z","actor":"Ambient Code Bot","issue_id":"acp-ext-739","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
+{"id":"int-387a20e2","kind":"field_change","created_at":"2026-05-21T03:11:52.662007Z","actor":"Ambient Code Bot","issue_id":"acp-ext-7b5","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
+{"id":"int-722ecb4b","kind":"field_change","created_at":"2026-05-21T03:11:52.888093Z","actor":"Ambient Code Bot","issue_id":"acp-ext-377","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}

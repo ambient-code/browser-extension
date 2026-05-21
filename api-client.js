@@ -1,4 +1,4 @@
-/* global oauthGetToken, oauthLogout, getConfig, chrome */
+/* global oauthGetToken, oauthRefreshToken, oauthLogout, getConfig, chrome */
 
 const API_BASE = '/api/ambient/v1';
 const DEFAULT_TIMEOUT = 30000;
@@ -54,11 +54,11 @@ async function apiRequest(method, path, options = {}) {
   let response = await doFetch(token);
 
   if (response.status === 401) {
-    const refreshed = await oauthGetToken();
-    if (refreshed && refreshed !== token) {
+    const refreshed = await oauthRefreshToken();
+    if (refreshed) {
       response = await doFetch(refreshed);
     }
-    if (response.status === 401) {
+    if (!refreshed || response.status === 401) {
       try { chrome.runtime.sendMessage({ type: 'AUTH_EXPIRED' }); } catch (_) {}
       throw new Error('Authentication expired');
     }

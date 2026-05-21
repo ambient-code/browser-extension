@@ -1,6 +1,6 @@
 # ACP Browser Extension — Essence
 
-> Extracted from /Users/jeder/repos/browser-extension on 2026-05-20. This document describes what the software is and does, independent of its current implementation.
+> Extracted from the browser-extension repository on 2026-05-20. This document describes what the software is and does, independent of its current implementation.
 
 ## 1. Purpose
 

@@ -435,7 +435,7 @@ function connectChatSSE(sessionId) {
         },
         (err) => {
           if (signal.aborted) return;
-          const delay = Math.min(chatSSEBackoff, 30000);
+          const delay = Math.min(chatSSEBackoff, 30000) * (0.5 + Math.random());
           chatSSEBackoff *= 2;
           chatSSEReconnectTimer = setTimeout(() => {
             chatSSEReconnectTimer = null;
@@ -496,7 +496,7 @@ async function sendHelpMessage() {
       await api.sessions.start(helpSessionId);
       status.textContent = 'Connected';
       for (const msg of helpPendingMessages) {
-        await api.sessions.sendMessage(helpSessionId, msg);
+        await api.sessions.sendMessage(helpSessionId, '[User Question]\n' + msg + '\n[End User Question]');
       }
       helpPendingMessages = [];
       connectChatSSEForHelp(helpSessionId, container);
@@ -509,7 +509,7 @@ async function sendHelpMessage() {
   }
 
   try {
-    await api.sessions.sendMessage(helpSessionId, text);
+    await api.sessions.sendMessage(helpSessionId, '[User Question]\n' + text + '\n[End User Question]');
   } catch (err) {
     showToast('Failed to send: ' + err.message, 'error');
   }
@@ -718,13 +718,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    let expiresAt = Date.now() + 86400000;
+    try {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (payload.exp) expiresAt = payload.exp * 1000;
+      }
+    } catch (_) {}
+
     await saveUrlToHistory(url);
     await chrome.storage.local.set({
       baseUrl: url.replace(/\/+$/, ''),
       oauthTokens: {
         access_token: token,
         refresh_token: null,
-        expires_at: Date.now() + 86400000,
+        expires_at: expiresAt,
         issuer_url: null,
       },
     });

@@ -132,7 +132,7 @@ async function connectSSE(sessionId) {
 
 function scheduleSSEReconnect(sessionId) {
   const current = sseBackoff.get(sessionId) || 1000;
-  const delay = Math.min(current, 30000);
+  const delay = Math.min(current, 30000) * (0.5 + Math.random());
   sseBackoff.set(sessionId, current * 2);
   setTimeout(() => {
     if (!sseControllers.has(sessionId)) {
